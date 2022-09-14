@@ -1,9 +1,11 @@
 package group
 
-import "github.com/cookieY/yee"
+import (
+	"Yearning-go/src/lib"
+)
 
-func GroupsApis() yee.RestfulAPI {
-	return yee.RestfulAPI{
+func GroupsApis() lib.RestfulAPI {
+	return lib.RestfulAPI{
 		Get:    SuperUserRuleMarge,
 		Post:   SuperGroupUpdate,
 		Put:    SuperGroup,

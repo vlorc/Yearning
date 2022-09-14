@@ -16,8 +16,8 @@ package lib
 import (
 	"Yearning-go/src/model"
 	"errors"
-	"github.com/cookieY/yee"
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v4"
+	"github.com/gin-gonic/gin"
 	"time"
 )
 
@@ -34,8 +34,8 @@ func JwtAuth(username string, role string) (t string, err error) {
 	return t, nil
 }
 
-func JwtParse(c yee.Context) (string, string) {
-	user := c.Get("auth").(*jwt.Token)
+func JwtParse(c *gin.Context) (string, string) {
+	user := c.Value("auth").(*jwt.Token)
 	claims := user.Claims.(jwt.MapClaims)
 	return claims["name"].(string), claims["role"].(string)
 }

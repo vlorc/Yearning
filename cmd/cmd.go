@@ -3,7 +3,7 @@ package cmd
 import (
 	"Yearning-go/src/lib"
 	"Yearning-go/src/model"
-	"Yearning-go/src/service"
+	"Yearning-go/src/server"
 	"fmt"
 	"github.com/gookit/gcli/v2"
 	"github.com/gookit/gcli/v2/builtin"
@@ -17,6 +17,7 @@ var RunOpts = struct {
 	config     string
 	repair     bool
 	resetAdmin bool
+	front      string
 }{}
 
 var Migrate = &gcli.Command{
@@ -28,7 +29,7 @@ var Migrate = &gcli.Command{
 	},
 	Func: func(c *gcli.Command, args []string) error {
 		model.DbInit(RunOpts.config)
-		service.Migrate()
+		server.Migrate()
 		return nil
 	},
 }
@@ -41,8 +42,8 @@ var Fix = &gcli.Command{
 	},
 	Func: func(c *gcli.Command, args []string) error {
 		model.DbInit(RunOpts.config)
-		service.DelCol()
-		service.MargeRuleGroup()
+		server.DelCol()
+		server.MargeRuleGroup()
 		return nil
 	},
 }
@@ -55,8 +56,9 @@ var Super = &gcli.Command{
 	},
 	Func: func(c *gcli.Command, args []string) error {
 		model.DbInit(RunOpts.config)
-		model.DB().Model(model.CoreAccount{}).Where("username =?", "admin").Update(&model.CoreAccount{Password: lib.DjangoEncrypt("Yearning_admin", string(lib.GetRandom()))})
-		fmt.Println("admin密码已重新设置为:Yearning_admin")
+		password := string(lib.GetRandom())
+		model.DB().Model(model.CoreAccount{}).Where("username =?", "admin").Update(&model.CoreAccount{Password: lib.DjangoEncrypt(password, string(lib.GetRandom()))})
+		fmt.Println("admin密码已重新设置为:", password)
 		return nil
 	},
 }
@@ -69,12 +71,13 @@ var RunServer = &gcli.Command{
 		c.StrOpt(&RunOpts.port, "port", "p", "8000", "Yearning启动端口")
 		c.StrOpt(&RunOpts.push, "push", "b", "127.0.0.1:8000", "钉钉/邮件推送时显示的平台地址")
 		c.StrOpt(&RunOpts.config, "config", "c", "conf.toml", "配置文件路径")
+		c.StrOpt(&RunOpts.front, "front", "f", "./dist", "Yearning前端目录")
 	},
 	Examples: `<cyan>{$binName} {$cmd} --port 80 --push "yearning.io" -config ../config.toml</>`,
 	Func: func(c *gcli.Command, args []string) error {
 		model.DbInit(RunOpts.config)
-		service.UpdateData()
-		service.StartYearning(net.JoinHostPort(RunOpts.addr, RunOpts.port), RunOpts.push)
+		server.UpdateData()
+		server.StartYearning(net.JoinHostPort(RunOpts.addr, RunOpts.port), RunOpts.push, RunOpts.front)
 		return nil
 	},
 }

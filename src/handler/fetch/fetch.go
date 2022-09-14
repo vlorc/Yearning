@@ -15,14 +15,14 @@ package fetch
 
 import (
 	"Yearning-go/src/handler/commom"
-	tpl2 "Yearning-go/src/handler/manager/tpl"
+	"Yearning-go/src/handler/manager/flow"
 	"Yearning-go/src/lib"
 	"Yearning-go/src/model"
 	pb "Yearning-go/src/proto"
 	"Yearning-go/src/soar"
 	"encoding/json"
 	"errors"
-	"github.com/cookieY/yee"
+	"github.com/gin-gonic/gin"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -30,17 +30,21 @@ import (
 	"time"
 )
 
-func FetchIDC(c yee.Context) (err error) {
-	return c.JSON(http.StatusOK, commom.SuccessPayload(model.GloOther.IDC))
+func FetchIDC(c *gin.Context) {
+	c.JSON(http.StatusOK, commom.SuccessPayload(model.GloOther.IDC))
 
 }
 
-func FetchSource(c yee.Context) (err error) {
+func FetchSource(c *gin.Context) {
 
 	u := new(_FetchBind)
-	if err := c.Bind(u); err != nil {
-		return err
+
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
+
 	if reflect.DeepEqual(u, _FetchBind{}) {
 		return
 	}
@@ -59,22 +63,24 @@ func FetchSource(c yee.Context) (err error) {
 	model.DB().Where("username =?", user).First(&s)
 
 	if err := json.Unmarshal(s.Group, &groups); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		//c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 
 	p := lib.MultiUserRuleMarge(groups)
 
 	model.DB().Select("source").Where("id_c =?", unescape).Find(&source)
 
-	var tpl model.CoreWorkflowTpl
+	var ft model.CoreWorkflowTpl
 
-	var whoIsAuditor []tpl2.Tpl
+	var whoIsAuditor []flow.Step
 
-	if model.DB().Model(model.CoreWorkflowTpl{}).Where("source =?", unescape).Find(&tpl).RecordNotFound() {
-		return c.JSON(http.StatusOK, commom.ERR_COMMON_MESSAGE(errors.New("环境没有添加流程!无法提交工单")))
+	if model.DB().Model(model.CoreWorkflowTpl{}).Where("source =?", unescape).Find(&ft).RecordNotFound() {
+		c.JSON(http.StatusOK, commom.ERR_COMMON_MESSAGE(errors.New("环境没有添加流程!无法提交工单")))
+		return
 	}
-	_ = json.Unmarshal(tpl.Steps, &whoIsAuditor)
+	_ = json.Unmarshal(ft.Steps, &whoIsAuditor)
 
 	queryAuditor = whoIsAuditor[1].Auditor
 
@@ -95,14 +101,16 @@ func FetchSource(c yee.Context) (err error) {
 		}
 	}
 
-	return c.JSON(http.StatusOK, commom.SuccessPayload(map[string]interface{}{"assigned": queryAuditor, "source": inter}))
+	c.JSON(http.StatusOK, commom.SuccessPayload(map[string]interface{}{"assigned": queryAuditor, "source": inter}))
 }
 
-func FetchBase(c yee.Context) (err error) {
+func FetchBase(c *gin.Context) {
 
 	u := new(_FetchBind)
-	if err := c.Bind(u); err != nil {
-		return err
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 	if reflect.DeepEqual(u, _FetchBind{}) {
 		return
@@ -118,7 +126,7 @@ func FetchBase(c yee.Context) (err error) {
 	result, err := commom.ScanDataRows(s, "", "SHOW DATABASES;", "库名", false)
 
 	if err != nil {
-		c.Logger().Error(err.Error())
+		// c.Logger().Error(err.Error())
 		return
 	}
 
@@ -126,14 +134,15 @@ func FetchBase(c yee.Context) (err error) {
 		mid = lib.Intersect(result.Results, model.GloOther.ExcludeDbList)
 		result.Results = lib.NonIntersect(mid, result.Results)
 	}
-	return c.JSON(http.StatusOK, commom.SuccessPayload(map[string]interface{}{"results": result.Results, "highlight": result.Highlight}))
+	c.JSON(http.StatusOK, commom.SuccessPayload(map[string]interface{}{"results": result.Results, "highlight": result.Highlight}))
 }
 
-func FetchTable(c yee.Context) (err error) {
+func FetchTable(c *gin.Context) {
 	u := new(_FetchBind)
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 	var s model.CoreDataSource
 
@@ -142,30 +151,32 @@ func FetchTable(c yee.Context) (err error) {
 	result, err := commom.ScanDataRows(s, u.DataBase, "SHOW TABLES;", "表名", false)
 
 	if err != nil {
-		c.Logger().Error(err.Error())
+		// c.Logger().Error(err.Error())
 		return
 	}
 
-	return c.JSON(http.StatusOK, commom.SuccessPayload(map[string]interface{}{"table": result.Results, "highlight": result.Highlight}))
+	c.JSON(http.StatusOK, commom.SuccessPayload(map[string]interface{}{"table": result.Results, "highlight": result.Highlight}))
 }
 
-func FetchTableInfo(c yee.Context) (err error) {
+func FetchTableInfo(c *gin.Context) {
 	u := new(_FetchBind)
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 	if err := u.FetchTableFieldsOrIndexes(); err != nil {
-		c.Logger().Critical(err.Error())
+		// c.Logger().Critical(err.Error())
 	}
-	return c.JSON(http.StatusOK, commom.SuccessPayload(map[string]interface{}{"rows": u.Rows, "idx": u.Idx}))
+	c.JSON(http.StatusOK, commom.SuccessPayload(map[string]interface{}{"rows": u.Rows, "idx": u.Idx}))
 }
 
-func FetchSQLTest(c yee.Context) (err error) {
+func FetchSQLTest(c *gin.Context) {
 	u := new(commom.SQLTest)
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 	var s model.CoreDataSource
 	model.DB().Where("source =?", u.Source).First(&s)
@@ -183,58 +194,63 @@ func FetchSQLTest(c yee.Context) (err error) {
 		Execute: false,
 		Check:   true,
 	}
-	record, err := lib.TsClient(&y)
+	record, err := lib.TsClient(&y, s.Proxy)
 	if err != nil {
-		return c.JSON(http.StatusOK, commom.ERR_COMMON_MESSAGE(err))
+		c.JSON(http.StatusOK, commom.ERR_COMMON_MESSAGE(err))
+	} else {
+		c.JSON(http.StatusOK, commom.SuccessPayload(record))
 	}
-	return c.JSON(http.StatusOK, commom.SuccessPayload(record))
 }
 
-func FetchOrderDetailList(c yee.Context) (err error) {
-	workId := c.QueryParam("work_id")
+func FetchOrderDetailList(c *gin.Context) {
+	workId := c.Query("work_id")
 	var record []model.CoreSqlRecord
 	var count int
-	start, end := lib.Paging(c.QueryParam("page"), 10)
+	start, end := lib.Paging(c.Query("page"), 10)
 	model.DB().Model(&model.CoreSqlRecord{}).Where("work_id =?", workId).Count(&count).Offset(start).Limit(end).Find(&record)
-	return c.JSON(http.StatusOK, commom.SuccessPayload(map[string]interface{}{"record": record, "count": count}))
+	c.JSON(http.StatusOK, commom.SuccessPayload(map[string]interface{}{"record": record, "count": count}))
 }
 
-func FetchOrderDetailRollSQL(c yee.Context) (err error) {
-	workId := c.QueryParam("work_id")
-	start, end := lib.Paging(c.QueryParam("page"), 5)
+func FetchOrderDetailRollSQL(c *gin.Context) {
+	workId := c.Query("work_id")
+	start, end := lib.Paging(c.Query("page"), 5)
 	var roll []model.CoreRollback
 	var count int
 	model.DB().Select("`sql`").Model(model.CoreRollback{}).Where("work_id =?", workId).Count(&count).Offset(start).Limit(end).Find(&roll)
-	return c.JSON(http.StatusOK, commom.SuccessPayload(map[string]interface{}{"sql": roll, "count": count}))
+	c.JSON(http.StatusOK, commom.SuccessPayload(map[string]interface{}{"sql": roll, "count": count}))
 }
 
-func FetchUndo(c yee.Context) (err error) {
-	u := c.QueryParam("work_id")
+func FetchUndo(c *gin.Context) {
+	u := c.Query("work_id")
 	user, _ := lib.JwtParse(c)
 	var undo model.CoreSqlOrder
 	if model.DB().Where(UNDO_EXPR, user, u, 2).First(&undo).RecordNotFound() {
-		return c.JSON(http.StatusOK, UNDO_MESSAGE_ERROR)
+		c.JSON(http.StatusOK, UNDO_MESSAGE_ERROR)
+		return
 	}
-	lib.MessagePush(undo.WorkId, 6, "")
+	lib.MessagePush(undo.WorkId, lib.EVENT_ORDER_EXEC_UNDO, "")
 	model.DB().Where(UNDO_EXPR, user, u, 2).Delete(&model.CoreSqlOrder{})
-	return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(UNDO_MESSAGE_SUCCESS))
+	c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(UNDO_MESSAGE_SUCCESS))
 }
 
-func FetchMergeDDL(c yee.Context) (err error) {
+func FetchMergeDDL(c *gin.Context) {
 	req := new(referOrder)
-	if err = c.Bind(req); err != nil {
-		return c.JSON(http.StatusOK, commom.ERR_COMMON_MESSAGE(err))
+	if err := c.Bind(req); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_COMMON_MESSAGE(err))
+		return
 	}
 	m, err := soar.MergeAlterTables(req.SQLs)
 	if err != nil {
-		return c.JSON(http.StatusOK, commom.ERR_SOAR_ALTER_MERGE(err))
+		c.JSON(http.StatusOK, commom.ERR_SOAR_ALTER_ERROR(err))
+	} else {
+		c.JSON(http.StatusOK, commom.SuccessPayload(m))
 	}
-	return c.JSON(http.StatusOK, commom.SuccessPayload(m))
 }
 
-func FetchSQLInfo(c yee.Context) (err error) {
-	workId := c.QueryParam("work_id")
-	limit := c.QueryParam("limit")
+func FetchSQLInfo(c *gin.Context) {
+	workId := c.Query("work_id")
+	limit := c.Query("limit")
 	var sql model.CoreSqlOrder
 	model.DB().Select("`sql`").Where("work_id =?", workId).First(&sql)
 	realSQL := sql.SQL
@@ -244,26 +260,28 @@ func FetchSQLInfo(c yee.Context) (err error) {
 			realSQL = strings.Join(tmp[:9], "")
 		}
 	}
-	return c.JSON(http.StatusOK, commom.SuccessPayload(map[string]interface{}{"sqls": realSQL}))
+	c.JSON(http.StatusOK, commom.SuccessPayload(map[string]interface{}{"sqls": realSQL}))
 }
 
-func FetchPerformList(c yee.Context) (err error) { // 获取审核人范围
+func FetchPerformList(c *gin.Context) { // 获取审核人范围
 	var user []model.CoreAccount
 	model.DB().Scopes(commom.AccordingToRuleSuperOrAdmin()).Find(&user)
-	return c.JSON(http.StatusOK, commom.SuccessPayload(map[string]interface{}{"perform": user}))
+	c.JSON(http.StatusOK, commom.SuccessPayload(map[string]interface{}{"perform": user}))
 }
 
 // RollBackSQLOrder create order record if order type of rollback
-func RollBackSQLOrder(c yee.Context) (err error) {
+func RollBackSQLOrder(c *gin.Context) {
 	u := new(referOrder)
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 
 	auditor := FetchTplAuditor(u.Data.IDC)
 	if auditor == nil {
-		return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(AUDITOR_IS_NOT_EXIST))
+		c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(AUDITOR_IS_NOT_EXIST))
+		return
 	}
 
 	var sql strings.Builder
@@ -294,28 +312,28 @@ func RollBackSQLOrder(c yee.Context) (err error) {
 		Rejected: "",
 		Time:     time.Now().Format("2006-01-02 15:04"),
 	})
-	lib.MessagePush(w, 2, "")
-	return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.ORDER_IS_CREATE))
+	lib.MessagePush(w, lib.EVENT_ORDER_EXEC_CREATE, "")
+	c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.ORDER_IS_CREATE))
 }
 
-func FetchStepsProfile(c yee.Context) (err error) {
-	workId := c.QueryParam("work_id")
+func FetchStepsProfile(c *gin.Context) {
+	workId := c.Query("work_id")
 	var s []model.CoreWorkflowDetail
 	model.DB().Where("work_id = ?", workId).Find(&s)
-	return c.JSON(http.StatusOK, commom.SuccessPayload(s))
+	c.JSON(http.StatusOK, commom.SuccessPayload(s))
 }
 
-func FetchBoard(c yee.Context) (err error) {
+func FetchBoard(c *gin.Context) {
 	var board model.CoreGlobalConfiguration
 	model.DB().Select("board").First(&board)
-	return c.JSON(http.StatusOK, commom.SuccessPayload(board))
+	c.JSON(http.StatusOK, commom.SuccessPayload(board))
 }
 
 func FetchTplAuditor(source string) []string {
-	var tpl model.CoreWorkflowTpl
-	var list []tpl2.Tpl
-	model.DB().Model(model.CoreWorkflowTpl{}).Where("source =?", source).First(&tpl)
-	_ = json.Unmarshal(tpl.Steps, &list)
+	var ft model.CoreWorkflowTpl
+	var list []flow.Step
+	model.DB().Model(model.CoreWorkflowTpl{}).Where("source =?", source).First(&ft)
+	_ = json.Unmarshal(ft.Steps, &list)
 	if len(list) > 1 {
 		if len(list[1].Auditor) > 0 {
 			return list[1].Auditor

@@ -14,12 +14,13 @@
 package settings
 
 import (
+	"Yearning-go/internal/pkg/messagex"
 	"Yearning-go/src/handler/commom"
 	"Yearning-go/src/lib"
 	"Yearning-go/src/model"
 	pb "Yearning-go/src/proto"
 	"encoding/json"
-	"github.com/cookieY/yee"
+	"github.com/gin-gonic/gin"
 	"net/http"
 )
 
@@ -30,11 +31,10 @@ const (
 	SUCCESS_LDAP_TEST = "ldap连接成功!"
 )
 
-type set struct {
-	Ldap    model.Ldap
-	Message model.Message
-	Other   model.Other
-	Mail    model.Message
+type settingInfo struct {
+	Ldap    model.Ldap    `json:"ldap"`
+	Message model.Message `json:"message"`
+	Other   model.Other   `json:"other"`
 }
 
 type ber struct {
@@ -42,22 +42,23 @@ type ber struct {
 	Tp   bool   `json:"tp"`
 }
 
-func SuperFetchSetting(c yee.Context) (err error) {
+func SuperFetchSetting(c *gin.Context) {
 
 	var k model.CoreGlobalConfiguration
 
 	model.DB().Select("ldap,message,other").First(&k)
 
-	return c.JSON(http.StatusOK, commom.SuccessPayload(k))
+	c.JSON(http.StatusOK, commom.SuccessPayload(k))
 }
 
-func SuperSaveSetting(c yee.Context) (err error) {
+func SuperSaveSetting(c *gin.Context) {
 
-	u := new(set)
+	u := new(settingInfo)
 
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 
 	other, _ := json.Marshal(u.Other)
@@ -69,7 +70,7 @@ func SuperSaveSetting(c yee.Context) (err error) {
 	model.GloLdap = u.Ldap
 	model.GloMessage = u.Message
 	lib.OverrideConfig(&pb.LibraAuditOrder{})
-	return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.DATA_IS_EDIT))
+	c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.DATA_IS_EDIT))
 }
 
 func diffIDC(src []string) {
@@ -83,40 +84,48 @@ func diffIDC(src []string) {
 	}
 }
 
-func SuperTestSetting(c yee.Context) (err error) {
+func SuperTestSetting(c *gin.Context) {
 
-	el := c.QueryParam("test")
-	u := new(set)
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+	el := c.Query("test")
+	u := new(settingInfo)
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 
 	if el == "mail" {
-		go lib.SendMail(u.Mail, lib.TemoplateTestMail)
-		return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(MAIL_TEST))
+		go lib.SendMail(u.Message, messagex.Message{
+			Body:   "test",
+			Target: messagex.Target{Mobiles: []string{u.Message.ToUser}},
+		})
+		c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(MAIL_TEST))
+		return
 	}
 
-	if el == "ding" {
-		go lib.SendDingMsg(u.Mail, lib.TmplTestDing)
-		return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(WEBHOOK_TEST))
+	if el == "web_hook" {
+		go lib.WebHookTestPush(u.Message)
+		c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(WEBHOOK_TEST))
+		return
 	}
 
 	if el == "ldap" {
-		if k, _ := lib.LdapContent(&u.Ldap, "", "", true); k {
-			return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(SUCCESS_LDAP_TEST))
+		if err := lib.LdapTest(&u.Ldap); nil == err {
+			c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(SUCCESS_LDAP_TEST))
+		} else {
+			c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(ERR_LDAP_TEST))
 		}
-		return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(ERR_LDAP_TEST))
-
+		return
 	}
-	return c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
+	c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
 }
 
-func SuperDelOrder(c yee.Context) (err error) {
+func SuperDelOrder(c *gin.Context) {
 	u := new(ber)
-	if err := c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 
 	if u.Tp {
@@ -144,5 +153,6 @@ func SuperDelOrder(c yee.Context) (err error) {
 			tx.Commit()
 		}()
 	}
-	return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.ORDER_IS_DELETE))
+	c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.ORDER_IS_DELETE))
+	return
 }

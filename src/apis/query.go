@@ -5,48 +5,51 @@ import (
 	"Yearning-go/src/handler/fetch"
 	"Yearning-go/src/handler/personal"
 	"Yearning-go/src/lib"
-	"github.com/cookieY/yee"
+	"github.com/gin-gonic/gin"
 	"net/http"
 )
 
-func YearningQueryForGet(y yee.Context) (err error) {
-	tp := y.Params("tp")
+func YearningQueryForGet(c *gin.Context) {
+	tp := c.Param("tp")
 	switch tp {
 	case "fetch_table":
-		return personal.FetchQueryTableInfo(y)
+		personal.FetchQueryTableInfo(c)
 	case "table_info":
-		return personal.FetchQueryTableStruct(y)
+		personal.FetchQueryTableStruct(c)
+	default:
+		c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
 	}
-	return y.JSON(http.StatusOK, "Illegal")
 }
 
-func YearningQueryForPut(y yee.Context) (err error) {
-	tp := y.Params("tp")
+func YearningQueryForPut(c *gin.Context) {
+	tp := c.Param("tp")
 	switch tp {
 	case "fetch_base":
-		return personal.FetchQueryDatabaseInfo(y)
+		personal.FetchQueryDatabaseInfo(c)
 	case "status":
-		return personal.FetchQueryStatus(y)
+		personal.FetchQueryStatus(c)
 	case "merge":
-		return fetch.FetchMergeDDL(y)
+		fetch.FetchMergeDDL(c)
+	default:
+		c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
 	}
-	return y.JSON(http.StatusOK,commom.ERR_REQ_FAKE)
 }
 
-func YearningQueryForPost(y yee.Context) (err error) {
-	tp := y.Params("tp")
-	user, _ := lib.JwtParse(y)
+func YearningQueryForPost(c *gin.Context) {
+	tp := c.Param("tp")
+	user, _ := lib.JwtParse(c)
 	switch tp {
 	case "refer":
-		return personal.ReferQueryOrder(y,&user)
+		personal.ReferQueryOrder(c, &user)
 	case "results":
-		return personal.FetchQueryResults(y, &user)
+		personal.FetchQueryResults(c, &user)
+	default:
+		c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
 	}
-	return y.JSON(http.StatusOK, "Illegal")
 }
 
-func YearningQueryApis() yee.RestfulAPI {
-	return yee.RestfulAPI{
+func YearningQueryApis() lib.RestfulAPI {
+	return lib.RestfulAPI{
 		Get:    YearningQueryForGet,
 		Put:    YearningQueryForPut,
 		Post:   YearningQueryForPost,

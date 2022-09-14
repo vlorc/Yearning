@@ -1,9 +1,11 @@
 package autoTask
 
-import "github.com/cookieY/yee"
+import (
+	"Yearning-go/src/lib"
+)
 
-func SuperAutoTaskApis() yee.RestfulAPI {
-	return yee.RestfulAPI{
+func SuperAutoTaskApis() lib.RestfulAPI {
+	return lib.RestfulAPI{
 		Put:    SuperFetchAutoTaskList,
 		Post:   SuperAutoTaskCreateOrEdit,
 		Delete: SuperDeleteAutoTask,

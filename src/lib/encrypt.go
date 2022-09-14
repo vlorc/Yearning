@@ -18,9 +18,10 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/hmac"
+	"crypto/md5"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"golang.org/x/crypto/pbkdf2"
 	"log"
 	"math/rand"
@@ -108,14 +109,14 @@ func Decrypt(cryted string) string {
 	return string(orig)
 }
 
-//补码
+// 补码
 func PKCS7Padding(ciphertext []byte, blocksize int) []byte {
 	padding := blocksize - len(ciphertext)%blocksize
 	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
 	return append(ciphertext, padtext...)
 }
 
-//去码
+// 去码
 func PKCS7UnPadding(origData []byte) []byte {
 	if len(origData) > 0 {
 		length := len(origData)
@@ -125,8 +126,12 @@ func PKCS7UnPadding(origData []byte) []byte {
 	return nil
 }
 
-func hmacSha256(stringToSign string, secret string) string {
-	h := hmac.New(sha256.New, []byte(secret))
-	h.Write([]byte(stringToSign))
-	return base64.StdEncoding.EncodeToString(h.Sum(nil))
+func Hash(p string) string {
+	h := md5.New()
+	h.Write([]byte(p))
+	return "hash:" + hex.EncodeToString(h.Sum(nil))
+}
+
+func IsHash(p string) bool {
+	return strings.HasPrefix(p, "hash:")
 }

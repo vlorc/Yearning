@@ -1,8 +1,9 @@
 package test
 
 import (
+	"Yearning-go/src/lib"
 	"encoding/json"
-	"github.com/cookieY/yee"
+	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -13,22 +14,22 @@ import (
 type Case struct {
 	Method  string
 	Uri     string
-	Handler yee.RestfulAPI
+	Handler lib.RestfulAPI
 	Rec     *httptest.ResponseRecorder
 	Req     *http.Request
-	Yee     *yee.Core
+	Gin     *gin.Engine
 }
 
 func (c *Case) Do() *Case {
-	c.Req.Header.Set("Content-Type", yee.MIMEApplicationJSON)
+	c.Req.Header.Set("Content-Type", gin.MIMEJSON)
 	c.Rec = httptest.NewRecorder()
-	c.Yee.ServeHTTP(c.Rec, c.Req)
+	c.Gin.ServeHTTP(c.Rec, c.Req)
 	return c
 }
 
 func (c *Case) NewTest() {
-	c.Yee = yee.C()
-	c.Yee.Restful(c.Uri, c.Handler)
+	c.Gin = gin.New()
+	c.Handler.Route(c.Gin, c.Uri)
 }
 
 func (c *Case) Get(payload string) *Case {

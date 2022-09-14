@@ -1,11 +1,12 @@
 package audit
 
-import "github.com/cookieY/yee"
+import (
+	"Yearning-go/src/lib"
+)
 
-func AuditRestFulAPis() yee.RestfulAPI {
-	return yee.RestfulAPI{
+func AuditRestFulAPis() lib.RestfulAPI {
+	return lib.RestfulAPI{
 		Post:   AuditOrderApis,
 		Put: AuditOrRecordOrderFetchApis,
 	}
 }
-

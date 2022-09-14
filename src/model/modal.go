@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"errors"
+	"time"
 )
 
 type JSON []byte
@@ -52,138 +53,197 @@ func (j JSON) Equals(j1 JSON) bool {
 }
 
 type CoreAccount struct {
-	ID         uint   `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
-	Username   string `gorm:"type:varchar(50);not null;index:user_idx" json:"username"`
-	Password   string `gorm:"type:varchar(150);not null" json:"password"`
-	Rule       string `gorm:"type:varchar(10);not null" json:"rule"`
-	Department string `gorm:"type:varchar(50);" json:"department"`
-	RealName   string `gorm:"type:varchar(50);" json:"real_name"`
-	Email      string `gorm:"type:varchar(50);" json:"email"`
+	ID         uint      `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
+	Username   string    `gorm:"type:varchar(50);not null;index:user_idx" json:"username"`
+	Password   string    `gorm:"type:varchar(150);not null" json:"password,omitempty"`
+	Rule       string    `gorm:"type:varchar(10);not null" json:"rule"`
+	Department string    `gorm:"type:varchar(50);" json:"department"`
+	RealName   string    `gorm:"type:varchar(50);" json:"real_name"`
+	Email      string    `gorm:"type:varchar(50);" json:"email"`
+	Mobile     string    `gorm:"type:varchar(50);" json:"mobile"`
+	OpenId     string    `gorm:"type:varchar(64);" json:"open_id"`
+	Source     string    `gorm:"type:varchar(64);" json:"source"`
+	CreatedAt  time.Time `gorm:"type:datetime;" json:"createdAt"`
+	UpdatedAt  time.Time `gorm:"type:datetime;" json:"updatedAt"`
 }
 
 type CoreGlobalConfiguration struct {
-	ID            uint   `gorm:"primary_key;AUTO_INCREMENT";json:"id"`
-	Authorization string `gorm:"type:varchar(50);not null";json:"authorization"`
-	Ldap          JSON   `gorm:"type:json;";json:"ldap"`
-	Message       JSON   `gorm:"type:json;";json:"message"`
-	Other         JSON   `gorm:"type:json;";json:"other"`
-	Stmt          uint   `gorm:"type:tinyint(2) not null default 0"`
-	AuditRole     JSON   `gorm:"type:json;";json:"audit_role"`
-	Board         string `gorm:"type:longtext"`
+	ID            uint      `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
+	Authorization string    `gorm:"type:varchar(50);not null" json:"authorization"`
+	Ldap          JSON      `gorm:"type:json;" json:"ldap"`
+	Message       JSON      `gorm:"type:json;" json:"message"`
+	Other         JSON      `gorm:"type:json;" json:"other"`
+	Stmt          uint      `gorm:"type:tinyint(2) not null default 0"`
+	AuditRole     JSON      `gorm:"type:json;" json:"audit_role"`
+	Board         string    `gorm:"type:longtext"`
+	CreatedAt     time.Time `gorm:"type:datetime;" json:"createdAt"`
+	UpdatedAt     time.Time `gorm:"type:datetime;" json:"updatedAt"`
 }
 
 type CoreSqlRecord struct {
-	ID        uint   `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
-	WorkId    string `gorm:"type:varchar(50);not null;index:workId_idx" json:"work_id"`
-	SQL       string `gorm:"type:longtext;not null" json:"sql"`
-	State     string `gorm:"type:varchar(50);not null;" json:"state"`
-	Affectrow uint   `gorm:"type:int(50);not null;" json:"affect_row"`
-	Time      string `gorm:"type:varchar(50);not null;" json:"time"`
-	Error     string `gorm:"type:longtext" json:"error"`
+	ID        uint      `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
+	WorkId    string    `gorm:"type:varchar(50);not null;index:workId_idx" json:"work_id"`
+	SQL       string    `gorm:"type:longtext;not null" json:"sql"`
+	State     string    `gorm:"type:varchar(50);not null;" json:"state"`
+	Affectrow uint      `gorm:"type:int(50);not null;" json:"affect_row"`
+	Time      string    `gorm:"type:varchar(50);not null;" json:"time"`
+	Error     string    `gorm:"type:longtext" json:"error"`
+	CreatedAt time.Time `gorm:"type:datetime;" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"type:datetime;" json:"updatedAt"`
 }
 
 type CoreSqlOrder struct {
-	ID          uint   `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
-	WorkId      string `gorm:"type:varchar(50);not null;index:workId_idx" json:"work_id"`
-	Username    string `gorm:"type:varchar(50);not null;index:query_idx" json:"username"`
-	Status      uint   `gorm:"type:tinyint(2);not null;" json:"status"`
-	Type        uint   `gorm:"type:tinyint(2);not null" json:"type"` // 1 dml  0 ddl
-	Backup      uint   `gorm:"type:tinyint(2);not null" json:"backup"`
-	IDC         string `gorm:"type:varchar(50);not null" json:"idc"`
-	Source      string `gorm:"type:varchar(50);not null" json:"source"`
-	DataBase    string `gorm:"type:varchar(50);not null" json:"data_base"`
-	Table       string `gorm:"type:varchar(50);not null" json:"table"`
-	Date        string `gorm:"type:varchar(50);not null" json:"date"`
-	SQL         string `gorm:"type:longtext;not null" json:"sql"`
-	Text        string `gorm:"type:longtext;not null" json:"text"`
-	Assigned    string `gorm:"type:varchar(50);not null" json:"assigned"`
-	Delay       string `gorm:"type:varchar(50);not null;default:'none'" json:"delay"`
-	RealName    string `gorm:"type:varchar(50);not null" json:"real_name"`
-	Executor    string `gorm:"type:varchar(50);" json:"executor"`
-	ExecuteTime string `gorm:"type:varchar(50);" json:"execute_time"`
-	Time        string `gorm:"type:varchar(50);not null;" json:"time"`
-	IsKill      uint   `gorm:"type:tinyint(2);not null;default:'0'" json:"is_kill"`
-	CurrentStep int    `gorm:"type:int(50);not null default 1;" json:"current_step"`
-	Relevant    JSON   `gorm:"type:json" json:"relevant"`
-	Percent     int    `gorm:"type:int(50);not null default 0;" json:"percent"`
-	Current     int    `gorm:"type:int(50);not null default 0;" json:"current"`
+	ID          uint      `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
+	WorkId      string    `gorm:"type:varchar(50);not null;index:workId_idx" json:"work_id"`
+	Username    string    `gorm:"type:varchar(50);not null;index:query_idx" json:"username"`
+	Status      uint      `gorm:"type:tinyint(1);not null;" json:"status"`
+	Type        uint      `gorm:"type:tinyint(1);not null" json:"type"` // 1 dml  0 ddl
+	Backup      uint      `gorm:"type:tinyint(1);not null" json:"backup"`
+	IDC         string    `gorm:"type:varchar(50);not null" json:"idc"`
+	Source      string    `gorm:"type:varchar(50);not null" json:"source"`
+	DataBase    string    `gorm:"type:varchar(50);not null" json:"data_base"`
+	Table       string    `gorm:"type:varchar(50);not null" json:"table"`
+	Date        string    `gorm:"type:varchar(50);not null" json:"date"`
+	SQL         string    `gorm:"type:longtext;not null" json:"sql"`
+	Text        string    `gorm:"type:longtext;not null" json:"text"`
+	Assigned    string    `gorm:"type:varchar(50);not null" json:"assigned"`
+	Delay       string    `gorm:"type:varchar(50);not null;default:'none'" json:"delay"`
+	RealName    string    `gorm:"type:varchar(50);not null" json:"real_name"`
+	Executor    string    `gorm:"type:varchar(50);" json:"executor"`
+	ExecuteTime string    `gorm:"type:varchar(50);" json:"execute_time"`
+	Time        string    `gorm:"type:varchar(50);not null;" json:"time"`
+	IsKill      uint      `gorm:"type:tinyint(2);not null;default:'0'" json:"is_kill"`
+	CurrentStep int       `gorm:"type:int(50);not null default 1;" json:"current_step"`
+	Relevant    JSON      `gorm:"type:json" json:"relevant"`
+	Percent     int       `gorm:"type:int(50);not null default 0;" json:"percent"`
+	Current     int       `gorm:"type:int(50);not null default 0;" json:"current"`
+	CreatedAt   time.Time `gorm:"type:datetime;" json:"createdAt"`
+	UpdatedAt   time.Time `gorm:"type:datetime;" json:"updatedAt"`
 }
 
 type CoreRollback struct {
-	ID     uint   `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
-	WorkId string `gorm:"type:varchar(50);not null;index:workId_idx" json:"work_id"`
-	SQL    string `gorm:"type:longtext;not null" json:"sql"`
+	ID        uint      `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
+	WorkId    string    `gorm:"type:varchar(50);not null;index:workId_idx" json:"work_id"`
+	SQL       string    `gorm:"type:longtext;not null" json:"sql"`
+	CreatedAt time.Time `gorm:"type:datetime;" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"type:datetime;" json:"updatedAt"`
 }
 
 type CoreDataSource struct {
-	ID       uint   `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
-	IDC      string `gorm:"type:varchar(50);not null" json:"idc"`
-	Source   string `gorm:"type:varchar(50);not null" json:"source"`
-	IP       string `gorm:"type:varchar(200);not null" json:"ip"`
-	Port     int    `gorm:"type:int(10);not null" json:"port"`
-	Username string `gorm:"type:varchar(50);not null" json:"username"`
-	Password string `gorm:"type:varchar(150);not null" json:"password"`
-	IsQuery  int    `gorm:"type:tinyint(2);not null" json:"is_query"` // 0写 1读 2读写
+	ID        uint      `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
+	IDC       string    `gorm:"type:varchar(50);not null" json:"idc"`
+	Source    string    `gorm:"type:varchar(50);not null" json:"source"`
+	IP        string    `gorm:"type:varchar(200);not null" json:"ip"`
+	Port      int       `gorm:"type:int(10);not null" json:"port"`
+	Username  string    `gorm:"type:varchar(50);not null" json:"username"`
+	Password  string    `gorm:"type:varchar(150);not null" json:"password"`
+	IsQuery   int       `gorm:"type:tinyint(2);not null" json:"is_query"` // 0写 1读 2读写
+	Proxy     string    `gorm:"type:varchar(50);not null" json:"proxy"`
+	CreatedAt time.Time `gorm:"type:datetime;" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"type:datetime;" json:"updatedAt"`
 }
 
 type CoreGrained struct {
-	ID       uint   `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
-	Username string `gorm:"type:varchar(50);not null;index:user_idx" json:"username"`
-	Group    JSON   `gorm:"type:json" json:"group"`
+	ID        uint      `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
+	Username  string    `gorm:"type:varchar(50);not null;index:user_idx" json:"username"`
+	Group     JSON      `gorm:"type:json" json:"group"`
+	CreatedAt time.Time `gorm:"type:datetime;" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"type:datetime;" json:"updatedAt"`
 }
 
 type CoreRoleGroup struct {
-	ID          uint   `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
-	Name        string `gorm:"type:varchar(50);not null" json:"name"`
-	Permissions JSON   `gorm:"type:json" json:"permissions"`
+	ID          uint      `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
+	Name        string    `gorm:"type:varchar(50);not null" json:"name"`
+	Permissions JSON      `gorm:"type:json" json:"permissions"`
+	CreatedAt   time.Time `gorm:"type:datetime;" json:"createdAt"`
+	UpdatedAt   time.Time `gorm:"type:datetime;" json:"updatedAt"`
 }
 
 type CoreQueryOrder struct {
-	ID       uint   `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
-	WorkId   string `gorm:"type:varchar(50);not null;index:workId_idx" json:"work_id"`
-	Username string `gorm:"type:varchar(50);not null" json:"username"`
-	Date     string `gorm:"type:varchar(50);not null;index:query_idx" json:"date"`
-	Text     string `gorm:"type:longtext;not null" json:"text"`
-	IDC      string `gorm:"type:varchar(50);not null" json:"idc"`
-	Assigned string `gorm:"type:varchar(50);not null" json:"assigned"`
-	Realname string `gorm:"type:varchar(50);not null" json:"real_name"`
-	Export   uint   `gorm:"type:tinyint(2);not null" json:"export"`
-	QueryPer int    `gorm:"type:tinyint(2);not null" json:"query_per"`
-	ExDate   string `gorm:"type:varchar(50);" json:"ex_date"`
+	ID        uint      `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
+	WorkId    string    `gorm:"type:varchar(50);not null;index:workId_idx" json:"work_id"`
+	Username  string    `gorm:"type:varchar(50);not null" json:"username"`
+	Date      string    `gorm:"type:varchar(50);not null;index:query_idx" json:"date"`
+	Text      string    `gorm:"type:longtext;not null" json:"text"`
+	IDC       string    `gorm:"type:varchar(50);not null" json:"idc"`
+	Assigned  string    `gorm:"type:varchar(50);not null" json:"assigned"`
+	Realname  string    `gorm:"type:varchar(50);not null" json:"real_name"`
+	Export    uint      `gorm:"type:tinyint(2);not null" json:"export"`
+	QueryPer  int       `gorm:"type:tinyint(2);not null" json:"query_per"`
+	ExDate    string    `gorm:"type:varchar(50);" json:"ex_date"`
+	CreatedAt time.Time `gorm:"type:datetime;" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"type:datetime;" json:"updatedAt"`
 }
 
 type CoreQueryRecord struct {
-	ID       uint   `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
-	WorkId   string `gorm:"type:varchar(50);not null;index:workId_idx" json:"work_id"`
-	SQL      string `gorm:"type:longtext;not null" json:"sql"`
-	ExTime   int    `gorm:"type:int(10);not null" json:"ex_time"`
-	Time     string `gorm:"type:varchar(50);not null" json:"time"`
-	Source   string `gorm:"type:varchar(50);not null" json:"source"`
-	BaseName string `gorm:"type:varchar(50);not null" json:"base_name"`
+	ID        uint      `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
+	WorkId    string    `gorm:"type:varchar(50);not null;index:workId_idx" json:"work_id"`
+	SQL       string    `gorm:"type:longtext;not null" json:"sql"`
+	ExTime    int       `gorm:"type:int(10);not null" json:"ex_time"`
+	Time      string    `gorm:"type:varchar(50);not null" json:"time"`
+	Source    string    `gorm:"type:varchar(50);not null" json:"source"`
+	BaseName  string    `gorm:"type:varchar(50);not null" json:"base_name"`
+	CreatedAt time.Time `gorm:"type:datetime;" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"type:datetime;" json:"updatedAt"`
 }
 
 type CoreAutoTask struct {
-	ID        uint   `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
-	Name      string `gorm:"type:varchar(50);not null" json:"name"`
-	Source    string `gorm:"type:varchar(50);not null" json:"source"`
-	DataBase  string `gorm:"type:varchar(50);not null" json:"data_base"`
-	Table     string `gorm:"type:varchar(50);not null" json:"table"`
-	Tp        int    `gorm:"type:tinyint(2);not null" json:"tp"` // 0 insert 1 update 2delete
-	Affectrow uint   `gorm:"type:int(50);not null default 0;" json:"affect_rows"`
-	Status    int    `gorm:"type:tinyint(2);not null default 0" json:"status"` // 0 close 1 on
+	ID        uint      `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
+	Name      string    `gorm:"type:varchar(50);not null" json:"name"`
+	Source    string    `gorm:"type:varchar(50);not null" json:"source"`
+	DataBase  string    `gorm:"type:varchar(50);not null" json:"data_base"`
+	Table     string    `gorm:"type:varchar(50);not null" json:"table"`
+	Tp        int       `gorm:"type:tinyint(2);not null" json:"tp"` // 1 insert ; 2 update ; 3 delete
+	Affectrow uint      `gorm:"type:int(50);not null default 0;" json:"affect_rows"`
+	Status    int       `gorm:"type:tinyint(1);not null default 1" json:"status"`
+	CreatedAt time.Time `gorm:"type:datetime;" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"type:datetime;" json:"updatedAt"`
 }
 
 type CoreWorkflowTpl struct {
-	ID     uint   `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
-	Source string `gorm:"type:varchar(50);not null;index:source_idx" json:"source"`
-	Steps  JSON   `gorm:"type:json" json:"steps"`
+	ID        uint      `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
+	Source    string    `gorm:"type:varchar(50);not null;index:source_idx" json:"source"`
+	Steps     JSON      `gorm:"type:json" json:"steps"`
+	CreatedAt time.Time `gorm:"type:datetime;" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"type:datetime;" json:"updatedAt"`
 }
 
 type CoreWorkflowDetail struct {
-	ID       uint   `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
-	WorkId   string `gorm:"type:varchar(50);not null;index:workId_idx" json:"work_id"`
-	Username string `gorm:"type:varchar(50);not null;index:query_idx" json:"username"`
-	Rejected string `gorm:"type:longtext;" json:"rejected"`
-	Time     string `gorm:"type:varchar(50);not null;" json:"time"`
-	Action   string `gorm:"type:varchar(50);not null;" json:"action"`
+	ID        uint      `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
+	WorkId    string    `gorm:"type:varchar(50);not null;index:workId_idx" json:"work_id"`
+	Username  string    `gorm:"type:varchar(50);not null;index:query_idx" json:"username"`
+	Rejected  string    `gorm:"type:longtext;" json:"rejected"`
+	Time      string    `gorm:"type:varchar(50);not null;" json:"time"`
+	Action    string    `gorm:"type:varchar(50);not null;" json:"action"`
+	CreatedAt time.Time `gorm:"type:datetime;" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"type:datetime;" json:"updatedAt"`
+}
+
+type CoreTemplate struct {
+	ID        uint      `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
+	Name      string    `gorm:"type:varchar(50);not null" json:"name"`
+	Alias     string    `gorm:"type:varchar(50);not null;uniqueIndex:template_alias" json:"alias"`
+	Event     string    `gorm:"type:varchar(255);not null" json:"event"`
+	Driver    string    `gorm:"type:varchar(50);not null" json:"driver"`
+	Type      string    `gorm:"type:varchar(50);not null" json:"type"`
+	Channel   string    `gorm:"type:varchar(50);not null" json:"channel"`
+	Title     string    `gorm:"type:varchar(255)" json:"title"`
+	Body      string    `gorm:"type:text" json:"body"`
+	Status    int       `gorm:"type:tinyint(1);not null default 1" json:"status"`
+	CreatedAt time.Time `gorm:"type:datetime;" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"type:datetime;" json:"updatedAt"`
+}
+
+type CoreProxy struct {
+	ID        uint      `gorm:"primary_key;AUTO_INCREMENT" json:"id"`
+	Name      string    `gorm:"type:varchar(50);not null" json:"name"`
+	Alias     string    `gorm:"type:varchar(50);not null;uniqueIndex:proxy_alias" json:"alias"`
+	Driver    string    `gorm:"type:varchar(50);not null" json:"driver"`
+	Url       string    `gorm:"type:varchar(50);not null" json:"url,omitempty"`
+	Username  string    `gorm:"type:varchar(50);not null" json:"username,omitempty"`
+	Password  string    `gorm:"type:varchar(255)" json:"password,omitempty"`
+	Secret    string    `gorm:"type:varchar(255)" json:"secret,omitempty"`
+	Status    int       `gorm:"type:tinyint(1);not null default 1" json:"status"`
+	CreatedAt time.Time `gorm:"type:datetime;" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"type:datetime;" json:"updatedAt"`
 }

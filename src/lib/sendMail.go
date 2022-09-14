@@ -14,11 +14,20 @@
 package lib
 
 import (
+	"Yearning-go/internal/pkg/ding"
+	"Yearning-go/internal/pkg/mailer"
+	"Yearning-go/internal/pkg/messagex"
+	"Yearning-go/internal/pkg/qywx"
+	"Yearning-go/internal/pkg/webhook"
 	"Yearning-go/src/model"
-	"crypto/tls"
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"gopkg.in/gomail.v2"
+	"github.com/pkg/errors"
 	"log"
+	"strings"
+	"text/template"
+	"time"
 )
 
 type UserInfo struct {
@@ -29,149 +38,294 @@ type UserInfo struct {
 	PubName string
 }
 
-var TemoplateTestMail = `
-<html>
-<body>
-	<div style="text-align:center;">
-		<h1>Yearning 2.0</h1>
-		<h2>此邮件是测试邮件！</h2>
-	</div>
-</body>
-</html>
-`
+type EventName string
 
-var TmplRejectMail = `
-<html>
-<body>
-<h1>Yearning 工单驳回通知</h1>
-<br><p>工单号: %s</p>
-<br><p>发起人: %s</p>
-<br><p>地址: <a href="%s">%s</a></p>
-<br><p>状态: 驳回</p>
-<br><p>驳回说明: %s</p>
-</body>
-</html>
-`
+const (
+	EVENT_TEST               EventName = "SYSTEM_TEST"
+	EVENT_ORDER_EXEC_CREATE  EventName = "ORDER_EXEC_CREATE"
+	EVENT_ORDER_EXEC_PASS    EventName = "ORDER_EXEC_PASS"
+	EVENT_ORDER_EXEC_REJECT  EventName = "ORDER_EXEC_REJECT"
+	EVENT_ORDER_EXEC_SUCCESS EventName = "ORDER_EXEC_SUCCESS"
+	EVENT_ORDER_EXEC_FAILED  EventName = "ORDER_EXEC_FAILED"
+	EVENT_ORDER_EXEC_PERFORM EventName = "ORDER_EXEC_PERFORM"
+	EVENT_ORDER_EXEC_UNDO    EventName = "ORDER_EXEC_UNDO"
+	EVENT_ORDER_QUERY_CREATE EventName = "ORDER_QUERY_CREATE"
+	EVENT_ORDER_QUERY_PASS   EventName = "ORDER_QUERY_PASS"
+	EVENT_ORDER_QUERY_REJECT EventName = "ORDER_QUERY_REJECT"
 
-var TmplMail = `
-<html>
-<body>
-<h1>Yearning 工单%s通知</h1>
-<br><p>工单号: %s</p>
-<br><p>发起人: %s</p>
-<br><p>地址: <a href="%s">%s</a></p>
-<br><p>状态: %s</p>
-</body>
-</html>
-`
+	ORDER_EXEC_PREFIX    = "ORDER_EXEC_"
+	ORDER_QUERY_PREFIX   = "ORDER_QUERY_"
+	ORDER_PASS_SUFFIX    = "_PASS"
+	ORDER_REJECT_suffix  = "_REJECT"
+	ORDER_SUCCESS_SUFFIX = "_SUCCESS"
+	ORDER_FAILED_suffix  = "_FAILED"
+)
 
-var Tmpl2Mail = `
-<html>
-<body>
-<h1>Yearning 工单%s通知</h1>
-<br><p>工单号: %s</p>
-<br><p>发起人: %s</p>
-<br><p>下一步操作人: %s <p>
-<br><p>地址: <a href="%s">%s</a></p>
-<br><p>状态: %s</p>
-</body>
-</html>
-`
+var eventNameMapping = map[EventName]string{
+	EVENT_ORDER_EXEC_CREATE:  "工单提交",
+	EVENT_ORDER_EXEC_PASS:    "工单通过",
+	EVENT_ORDER_EXEC_REJECT:  "工单拒绝",
+	EVENT_ORDER_EXEC_SUCCESS: "工单执行成功",
+	EVENT_ORDER_EXEC_FAILED:  "工单执行失败",
+	EVENT_ORDER_EXEC_PERFORM: "工单移交",
+	EVENT_ORDER_EXEC_UNDO:    "工单撤销",
+	EVENT_ORDER_QUERY_CREATE: "查询申请创建",
+	EVENT_ORDER_QUERY_PASS:   "查询申请通过",
+	EVENT_ORDER_QUERY_REJECT: "查询申请拒绝",
+}
 
-var TmplTestDing = `# Yearning 测试！`
+var QueryTemplate = func(EventName) []model.CoreTemplate {
+	return nil
+}
 
-var TmplReferDing = `# Yearning工单提交通知 #  \n \n  **工单编号:**  %s \n \n **数据源:** %s \n \n **提交人员:**  <font color=\"#78beea\">%s</font> \n \n **下一步操作人:** <font color=\"#fe8696\">%s</font> \n \n **平台地址:** %s \n \n **工单说明:**  %s \n \n **状态:** <font color=\"#1abefa\">已提交</font> \n \n `
+func SendMail(mail model.Message, msg messagex.Message) error {
+	return mailer.Send(
+		mailer.Config{
+			Addr:     fmt.Sprintf("%s:%d", mail.Host, mail.Port),
+			User:     mail.User,
+			Pass:     mail.Password,
+			Ssl:      mail.Ssl,
+			Insecure: !mail.Ssl,
+			Timeout:  10,
+		},
+		msg)
+}
 
-var TmplRejectDing = `# Yearning工单驳回通知 #  \n \n  **工单编号:**  %s \n \n **数据源:** %s \n \n **提交人员:**  <font color=\"#78beea\">%s</font> \n \n **下一步操作人:** <font color=\"#fe8696\">%s</font> \n \n **平台地址:** %s \n \n **工单说明:**  %s \n \n **状态:** <font color=\"#df117e\">驳回</font>  \n \n **驳回说明:**  %s `
-var TmplSuccessDing = `# Yearning工单执行通知 #  \n \n  **工单编号:**  %s \n \n **数据源:** %s \n \n **提交人员:**  <font color=\"#78beea\">%s</font> \n \n **执行人:** <font color=\"#fe8696\">%s</font> \n \n **平台地址:** %s \n \n **工单说明:**  %s \n \n **状态:** <font color=\"#3fd2bd\">执行成功</font>`
-var TmplFailedDing = `# Yearning工单执行通知 #  \n \n  **工单编号:**  %s \n \n **数据源:** %s \n \n **提交人员:**  <font color=\"#78beea\">%s</font> \n \n **执行人:** <font color=\"#fe8696\">%s</font> \n \n **平台地址:** %s \n \n **工单说明:**  %s \n \n **状态:** <font color=\"#ea2426\">执行失败</font>`
-var TmplPerformDing = `# Yearning工单转交通知 #  \n \n  **工单编号:**  %s \n \n **数据源:** %s \n \n **提交人员:**  <font color=\"#78beea\">%s</font> \n \n **下一步操作人:** <font color=\"#fe8696\">%s</font> \n \n **平台地址:** %s \n \n **工单说明:**  %s \n \n **状态:** <font color=\"#de4943\">已转交至下一操作人</font>`
-var TmplBackDing = `# Yearning工单执行通知 #  \n \n  **工单编号:**  %s \n \n **数据源:** %s  \n \n **提交人员:**  <font color=\"#78beea\">%s</font> \n \n **下一步操作人:** <font color=\"#fe8696\">%s</font> \n \n **平台地址:** %s \n \n **工单说明:**  %s \n \n **状态:** <font color=\"#ea2426\">已撤回</font>`
+type TemplateParam struct {
+	User     model.CoreAccount  `json:"user"`
+	Order    TemplateOrderParam `json:"order"`
+	Assigned model.CoreAccount  `json:"assigned"`
+	Link     string             `json:"link,omitempty"`
+	Kind     string             `json:"kind,omitempty"`
+	Event    string             `json:"event,omitempty"`
+	Name     string             `json:"name,omitempty"`
+	Title    string             `json:"title,omitempty"`
+	Date     string             `json:"date,omitempty"`
+	Time     string             `json:"time,omitempty"`
+	Host     string             `json:"host,omitempty"`
+}
 
-var TmplQueryRefer = `# Yearning查询申请通知 #  \n \n  **工单编号:**  %s \n \n **提交人员:**  <font color=\"#78beea\">%s</font> \n \n **审核人员:** <font color=\"#fe8696\">%s</font> \n \n **平台地址:** %s \n \n **工单说明:**  %s \n \n **状态:** <font color=\"#1abefa\">已提交</font>`
-var TmplSuccessQuery = `# Yearning查询申请通知 #  \n \n  **工单编号:**  %s \n \n **提交人员:**  <font color=\"#78beea\">%s</font> \n \n **审核人员:** <font color=\"#fe8696\">%s</font> \n \n **平台地址:** %s \n \n **状态:** <font color=\"#3fd2bd\">同意</font>`
-var TmplRejectQuery = `# Yearning查询申请通知 #  \n \n  **工单编号:**  %s \n \n **提交人员:**  <font color=\"#78beea\">%s</font> \n \n **审核人员:** <font color=\"#fe8696\">%s</font> \n \n **平台地址:** %s \n \n **状态:** <font color=\"#df117e\">已驳回</font>`
+type TemplateOrderParam struct {
+	ID          uint      `json:"id"`
+	WorkId      string    `json:"work_id"`
+	Username    string    `json:"username"`
+	Status      uint      `json:"status"`
+	Type        uint      `json:"type"` // 1 dml  0 ddl 3 query
+	Backup      uint      `json:"backup"`
+	IDC         string    `json:"idc"`
+	Source      string    `json:"source"`
+	DataBase    string    `json:"data_base"`
+	Table       string    `json:"table"`
+	Date        string    `json:"date"`
+	SQL         string    `json:"sql"`
+	Text        string    `json:"text"`
+	Assigned    string    `json:"assigned"`
+	Delay       string    `json:"delay"`
+	RealName    string    `json:"real_name"`
+	Executor    string    `json:"executor"`
+	ExecuteTime string    `json:"execute_time"`
+	Time        string    `json:"time"`
+	IsKill      uint      `json:"is_kill"`
+	CurrentStep int       `json:"current_step"`
+	Percent     int       `json:"percent"`
+	Current     int       `json:"current"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+	Export      uint      `json:"export"`
+	QueryPer    int       `json:"query_per"`
+	ExDate      string    `json:"ex_date"`
+}
 
-func SendMail(mail model.Message, tmpl string) {
-	m := gomail.NewMessage()
-	m.SetHeader("From", mail.User)
-	m.SetHeader("To", mail.ToUser)
-	m.SetHeader("Subject", "Yearning消息推送!")
-	m.SetBody("text/html", tmpl)
-	d := gomail.NewDialer(mail.Host, mail.Port, mail.User, mail.Password)
-	if mail.Ssl {
-		d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
-	}
-	// Send the email to Bob, Cora and Dan.
-	if err := d.DialAndSend(m); err != nil {
-		log.Println(err.Error())
+func MessagePush(workid string, event EventName, link string) {
+	temp := QueryTemplate(event)
+	if len(temp) == 0 {
+		log.Println("can not match template by event: ", string(event))
 		return
+	}
+
+	var param = TemplateParam{
+		Link:  link,
+		Event: string(event),
+		Name:  eventNameMapping[event],
+		Date:  time.Now().Format("2006-01-02"),
+		Time:  time.Now().Format("15:04:05"),
+		Host:  model.Host,
+	}
+	if strings.HasPrefix(string(event), ORDER_EXEC_PREFIX) {
+		param.Kind = "提交人"
+		var order model.CoreSqlOrder
+		model.DB().Where("work_id =?", workid).First(&order)
+		param.Order = TemplateOrderParam{
+			ID:          order.ID,
+			WorkId:      order.WorkId,
+			Username:    order.Username,
+			Status:      order.Status,
+			Type:        order.Type,
+			Backup:      order.Backup,
+			IDC:         order.IDC,
+			Source:      order.Source,
+			DataBase:    order.DataBase,
+			Table:       order.Table,
+			Date:        order.Date,
+			SQL:         order.SQL,
+			Text:        order.Text,
+			Assigned:    order.Assigned,
+			Delay:       order.Delay,
+			RealName:    order.RealName,
+			Executor:    order.Executor,
+			ExecuteTime: order.ExecuteTime,
+			Time:        order.Time,
+			IsKill:      order.IsKill,
+			CurrentStep: order.CurrentStep,
+			Percent:     order.Percent,
+			Current:     order.Current,
+			CreatedAt:   order.CreatedAt,
+			UpdatedAt:   order.UpdatedAt,
+		}
+	}
+	if strings.HasPrefix(string(event), ORDER_QUERY_PREFIX) {
+		param.Kind = "提交人"
+		var order model.CoreQueryOrder
+		model.DB().Where("work_id =?", workid).First(&order)
+		param.Order = TemplateOrderParam{
+			ID:        order.ID,
+			WorkId:    order.WorkId,
+			Username:  order.Username,
+			IDC:       order.IDC,
+			Date:      order.Date,
+			Text:      order.Text,
+			Assigned:  order.Assigned,
+			CreatedAt: order.CreatedAt,
+			UpdatedAt: order.UpdatedAt,
+		}
+	}
+	if "" != param.Order.Username {
+		var user model.CoreAccount
+		model.DB().Where("username =?", param.Order.Username).First(&user)
+		param.User = user
+		param.User.Password = ""
+	}
+	if "" != param.Order.Assigned {
+		var user model.CoreAccount
+		model.DB().Where("username =?", param.Order.Assigned).First(&user)
+		param.Assigned = user
+		param.Assigned.Password = ""
+	}
+
+	for i := range temp {
+		err := messagePushTemplate(&temp[i], &param)
+		if nil != err {
+			log.Println("push event template failed, event:", string(event), "template:", temp[i].Alias, "channel:", temp[i].Channel, "workId:", workid)
+		} else {
+			log.Println("push event template success, event:", string(event), "template:", temp[i].Alias, "channel:", temp[i].Channel, "workId:", workid)
+		}
 	}
 }
 
-func MessagePush(workid string, t uint, reject string) {
-	var user model.CoreAccount
-	var o model.CoreSqlOrder
-	var ding, mail string
-	model.DB().Select("work_id,username,text,assigned,executor,source").Where("work_id =?", workid).First(&o)
-	model.DB().Select("email").Where("username =?", o.Username).First(&user)
-	s := model.GloMessage
-	s.ToUser = user.Email
+func WebHookTestPush(conf model.Message) error {
+	if "ding" == conf.WebHookUrl || ding.IsDingUrl(conf.WebHookUrl) {
+		return ding.Send(
+			ding.Config{
+				Url:    conf.WebHookUrl,
+				Token:  conf.Token,
+				Secret: conf.Key,
+			},
+			messagex.Message{Body: "test"},
+		)
+	}
+	if "qywx" == conf.WebHookUrl || qywx.IsQywxUrl(conf.WebHookUrl) {
+		return qywx.Send(
+			qywx.Config{
+				Url:    conf.WebHookUrl,
+				Token:  conf.Token,
+				Secret: conf.Key,
+			},
+			messagex.Message{Body: "test"},
+		)
+	}
+	return webhook.Send(webhook.Config{Url: conf.WebHookUrl}, strings.NewReader(`"event":"EVENT_TEST"`))
+}
 
-	if model.GloOther.Query && t > 6 {
-		var op model.CoreQueryOrder
-		model.DB().Select("work_id,username,text,assigned").Where("work_id =?", workid).First(&op)
-		model.DB().Select("email").Where("username =?", op.Username).First(&user)
-		s.ToUser = user.Email
-		if t == 7 {
-			model.DB().Select("email").Where("username =?", op.Assigned).First(&user)
-			s.ToUser = user.Email
-			ding = fmt.Sprintf(TmplQueryRefer, op.WorkId, op.Username, op.Assigned, model.Host, op.Text)
-			mail = fmt.Sprintf(TmplMail, "查询申请", op.WorkId, op.Username, model.Host, model.Host, "已提交")
+func messagePushTemplate(temp *model.CoreTemplate, param *TemplateParam) error {
+	param.Title = temp.Title
+
+	var b bytes.Buffer
+	if "{{json}}" != temp.Body {
+		t, err := template.New("").Parse(temp.Body)
+		if nil != err {
+			return errors.WithMessage(err, "Template parse")
 		}
-		if t == 8 {
-			ding = fmt.Sprintf(TmplSuccessQuery, op.WorkId, op.Username, op.Assigned, model.Host)
-			mail = fmt.Sprintf(TmplMail, "查询申请", op.WorkId, op.Username, model.Host, model.Host, "已同意")
-		}
-		if t == 9 {
-			ding = fmt.Sprintf(TmplRejectQuery, op.WorkId, op.Username, op.Assigned, model.Host)
-			mail = fmt.Sprintf(TmplMail, "查询申请", op.WorkId, op.Username, model.Host, model.Host, "已驳回")
+		if err = t.Execute(&b, param); nil != err {
+			return errors.WithMessage(err, "Template execute")
 		}
 	} else {
-		switch t {
-		case 0:
-			ding = fmt.Sprintf(TmplRejectDing, o.WorkId, o.Source, o.Username, o.Assigned, model.Host, o.Text, reject)
-			mail = fmt.Sprintf(TmplRejectMail, o.WorkId, o.Username, model.Host, model.Host, reject)
-		case 1:
-			ding = fmt.Sprintf(TmplSuccessDing, o.WorkId, o.Source, o.Username, o.Assigned, model.Host, o.Text)
-			mail = fmt.Sprintf(TmplMail, "执行", o.WorkId, o.Username, model.Host, model.Host, "执行成功")
-		case 2:
-			model.DB().Select("email").Where("username =?", o.Assigned).First(&user)
-			s.ToUser = user.Email
-			ding = fmt.Sprintf(TmplReferDing, o.WorkId, o.Source, o.Username, o.Assigned, model.Host, o.Text)
-			mail = fmt.Sprintf(TmplMail, "提交", o.WorkId, o.Username, model.Host, model.Host, "已提交")
-		case 4:
-			ding = fmt.Sprintf(TmplFailedDing, o.WorkId, o.Source, o.Username, o.Assigned, model.Host, o.Text)
-			mail = fmt.Sprintf(TmplMail, "执行", o.WorkId, o.Username, model.Host, model.Host, "执行失败")
-		case 5:
-			model.DB().Select("email").Where("username =?", o.Assigned).First(&user)
-			s.ToUser = user.Email
-			ding = fmt.Sprintf(TmplPerformDing, o.WorkId, o.Source, o.Username, o.Assigned, model.Host, o.Text)
-			mail = fmt.Sprintf(Tmpl2Mail, "转交", o.WorkId, o.Username, o.Assigned, model.Host, model.Host, "已转交至下一操作人")
-		case 6:
-			ding = fmt.Sprintf(TmplBackDing, o.WorkId, o.Source, o.Username, o.Assigned, model.Host, o.Text)
-			mail = fmt.Sprintf(TmplMail, "提交", o.WorkId, o.Username, model.Host, model.Host, "已撤销")
-		}
+		json.NewEncoder(&b).Encode(param)
 	}
 
-	if model.GloMessage.Mail {
-		if user.Email != "" {
-			go SendMail(s, mail)
-		}
+	msg := messagex.Message{
+		Type:    messagex.Type(temp.Type),
+		Subject: temp.Title,
+		Body:    b.String(),
+		Link:    param.Link,
 	}
-	if model.GloMessage.Ding {
-		if model.GloMessage.WebHook != "" {
-			go SendDingMsg(s, ding)
+	if 0 != param.User.ID {
+		msg.Sources = append(msg.Sources, messagex.Source{
+			Name:   param.User.RealName,
+			Email:  param.User.Email,
+			OpenId: param.User.OpenId,
+			Mobile: param.User.Mobile,
+			Kind:   param.Kind,
+		})
+	}
+	if strings.HasSuffix(param.Event, ORDER_PASS_SUFFIX) || strings.HasSuffix(param.Event, ORDER_REJECT_suffix) {
+		appendTarget(&msg.Target, &param.User)
+	} else if 0 != param.Assigned.ID {
+		appendTarget(&msg.Target, &param.Assigned)
+	}
+	if strings.HasSuffix(param.Event, ORDER_SUCCESS_SUFFIX) || strings.HasSuffix(param.Event, ORDER_FAILED_suffix) {
+		appendTarget(&msg.Target, &param.User)
+	}
+	if model.GloMessage.Mail && "email" == temp.Channel {
+		return SendMail(model.GloMessage, msg)
+	}
+
+	if model.GloMessage.WebHook {
+		if "ding" == model.GloMessage.WebHookUrl || ding.IsDingUrl(model.GloMessage.WebHookUrl) {
+			return ding.Send(
+				ding.Config{
+					Url:    model.GloMessage.WebHookUrl,
+					Token:  model.GloMessage.Token,
+					Secret: model.GloMessage.Key,
+				},
+				msg,
+			)
+		}
+		if "qywx" == model.GloMessage.WebHookUrl || qywx.IsQywxUrl(model.GloMessage.WebHookUrl) {
+			return qywx.Send(
+				qywx.Config{
+					Url:    model.GloMessage.WebHookUrl,
+					Token:  model.GloMessage.Token,
+					Secret: model.GloMessage.Key,
+				},
+				msg,
+			)
+		}
+		return webhook.Send(webhook.Config{Url: model.GloMessage.WebHookUrl}, &b)
+	}
+
+	return fmt.Errorf("can not support channel %s", temp.Channel)
+}
+
+func appendTarget(target *messagex.Target, user *model.CoreAccount) {
+	if 0 != user.ID {
+		if "" != user.Email {
+			target.Emails = append(target.Emails, user.Email)
+		}
+		if "" != user.Mobile {
+			target.Mobiles = append(target.Mobiles, user.Mobile)
+		}
+		if "" != user.OpenId {
+			target.OpenIds = append(target.OpenIds, user.OpenId)
 		}
 	}
 }

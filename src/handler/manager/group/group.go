@@ -19,19 +19,21 @@ import (
 	"Yearning-go/src/model"
 	"encoding/json"
 	"fmt"
-	"github.com/cookieY/yee"
+	"github.com/gin-gonic/gin"
 	"net/http"
 	"net/url"
 	"strings"
 )
 
-func SuperGroup(c yee.Context) (err error) {
+func SuperGroup(c *gin.Context) {
 	var page int
 	var roles []model.CoreRoleGroup
 
 	f := new(commom.PageInfo)
-	if err = c.Bind(f); err != nil {
-		return err
+	if err := c.Bind(f); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 	start, end := lib.Paging(f.Page, 10)
 	var source []model.CoreDataSource
@@ -45,7 +47,7 @@ func SuperGroup(c yee.Context) (err error) {
 	} else {
 		model.DB().Model(model.CoreRoleGroup{}).Count(&page).Offset(start).Limit(end).Find(&roles)
 	}
-	return c.JSON(http.StatusOK, commom.SuccessPayload(
+	c.JSON(http.StatusOK, commom.SuccessPayload(
 		commom.CommonList{
 			Page:    page,
 			Data:    roles,
@@ -56,41 +58,45 @@ func SuperGroup(c yee.Context) (err error) {
 	))
 }
 
-func SuperGroupUpdate(c yee.Context) (err error) {
+func SuperGroupUpdate(c *gin.Context) {
 	user, _ := lib.JwtParse(c)
 	if user == "admin" {
-		u := new(k)
-		if err = c.Bind(u); err != nil {
-			c.Logger().Error(err.Error())
-			return c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		req := new(updateReq)
+		if err := c.MustBindWith(req, lib.Binding{}); err != nil {
+			// c.Logger().Error(err.Error())
+			c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+			return
 		}
-		g, err := json.Marshal(u.Permission)
+		g, err := json.Marshal(req.Permission)
 		if err != nil {
-			c.Logger().Error(err.Error())
-			return c.JSON(http.StatusOK, commom.ERR_COMMON_MESSAGE(err))
+			// c.Logger().Error(err.Error())
+			c.JSON(http.StatusOK, commom.ERR_COMMON_MESSAGE(err))
+			return
 		}
-		if u.Tp == 1 {
+		if req.Tp == 1 {
 			var s model.CoreRoleGroup
-			if model.DB().Scopes(commom.AccordingToNameEqual(u.Username)).First(&s).RecordNotFound() {
+			if model.DB().Scopes(commom.AccordingToNameEqual(req.Username)).First(&s).RecordNotFound() {
 				model.DB().Create(&model.CoreRoleGroup{
-					Name:        u.Username,
+					Name:        req.Username,
 					Permissions: g,
 				})
 			} else {
-				model.DB().Model(model.CoreRoleGroup{}).Scopes(commom.AccordingToNameEqual(u.Username)).Update(&model.CoreRoleGroup{Permissions: g})
+				model.DB().Model(model.CoreRoleGroup{}).Scopes(commom.AccordingToNameEqual(req.Username)).Update(&model.CoreRoleGroup{Permissions: g})
 			}
-			return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(fmt.Sprintf(GROUP_CREATE_SUCCESS, u.Username)))
+			c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(fmt.Sprintf(GROUP_CREATE_SUCCESS, req.Username)))
+			return
 		} else {
-			g, _ := json.Marshal(u.Group)
-			model.DB().Model(model.CoreGrained{}).Scopes(commom.AccordingToUsernameEqual(u.Username)).Updates(model.CoreGrained{Group: g})
-			return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(fmt.Sprintf(GROUP_EDIT_SUCCESS, u.Username)))
+			g, _ := json.Marshal(req.Group)
+			model.DB().Model(model.CoreGrained{}).Scopes(commom.AccordingToUsernameEqual(req.Username)).Updates(model.CoreGrained{Group: g})
+			c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(fmt.Sprintf(GROUP_EDIT_SUCCESS, req.Username)))
+			return
 		}
 	}
-	return c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
+	c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
 }
 
-func SuperClearUserRule(c yee.Context) (err error) {
-	args := c.QueryParam("clear")
+func SuperClearUserRule(c *gin.Context) {
+	args := c.Query("clear")
 	scape, _ := url.QueryUnescape(args)
 	var j []model.CoreGrained
 	var m1 []string
@@ -101,15 +107,17 @@ func SuperClearUserRule(c yee.Context) (err error) {
 		model.DB().Model(model.CoreGrained{}).Scopes(commom.AccordingToUsernameEqual(i.Username)).Update(&model.CoreGrained{Group: marshalGroup})
 	}
 	model.DB().Model(model.CoreRoleGroup{}).Scopes(commom.AccordingToNameEqual(scape)).Delete(&model.CoreRoleGroup{})
-	return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(fmt.Sprintf(GROUP_DELETE_SUCCESS, scape)))
+	c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(fmt.Sprintf(GROUP_DELETE_SUCCESS, scape)))
 }
 
-func SuperUserRuleMarge(c yee.Context) (err error) {
-	u := new(marge)
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+func SuperUserRuleMarge(c *gin.Context) {
+	req := new(margeReq)
+	if err := c.MustBindWith(req, lib.Binding{}); err != nil {
+		//c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
-	m3 := lib.MultiUserRuleMarge(strings.Split(u.Group, ","))
-	return c.JSON(http.StatusOK, commom.SuccessPayload(m3))
+	m3 := lib.MultiUserRuleMarge(strings.Split(req.Group, ","))
+	c.JSON(http.StatusOK, commom.SuccessPayload(m3))
+	return
 }

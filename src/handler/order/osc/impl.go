@@ -25,4 +25,3 @@ func (o *OSC) Kill() string {
 	lib.ExKillOsc(&pb.LibraAuditOrder{WorkId: o.WorkId})
 	return "kill指令已发送!如工单最后显示为执行失败则生效!"
 }
-

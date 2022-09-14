@@ -3,22 +3,23 @@ package board
 import (
 	"Yearning-go/src/handler/commom"
 	"Yearning-go/src/model"
-	"github.com/cookieY/yee"
 	"net/http"
+	"github.com/gin-gonic/gin"
 )
 
-type board struct {
+type boardReq struct {
 	Board string `json:"board"`
 }
 
 const BOARD_MESSAGE_SAVE = "公告已保存"
 
-func GeneralPostBoard(c yee.Context) (err error) {
-	req := new(board)
-	if err = c.Bind(req); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusOK, commom.ERR_COMMON_MESSAGE(err))
+func GeneralPostBoard(c *gin.Context) {
+	req := new(boardReq)
+	if err := c.Bind(req); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 	model.DB().Model(model.CoreGlobalConfiguration{}).Update(&model.CoreGlobalConfiguration{Board: req.Board})
-	return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(BOARD_MESSAGE_SAVE))
+	c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(BOARD_MESSAGE_SAVE))
 }

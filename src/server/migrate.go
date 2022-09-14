@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package service
+package server
 
 import (
 	"Yearning-go/src/lib"
@@ -69,6 +69,8 @@ func Migrate() {
 		model.DB().CreateTable(&model.CoreRoleGroup{})
 		model.DB().CreateTable(&model.CoreWorkflowTpl{})
 		model.DB().AutoMigrate(&model.CoreWorkflowDetail{})
+		model.DB().AutoMigrate(&model.CoreTemplate{})
+		model.DB().AutoMigrate(&model.CoreProxy{})
 		o := parser.AuditRole{
 			DMLInsertColumns:               false,
 			DMLMaxInsertRows:               10,
@@ -137,15 +139,15 @@ func Migrate() {
 		}
 
 		message := model.Message{
-			WebHook:  "",
-			Host:     "",
-			Port:     25,
-			User:     "",
-			Password: "",
-			ToUser:   "",
-			Mail:     false,
-			Ding:     false,
-			Ssl:      false,
+			WebHookUrl: "",
+			Host:       "",
+			Port:       25,
+			User:       "",
+			Password:   "",
+			ToUser:     "",
+			Mail:       false,
+			WebHook:    false,
+			Ssl:        false,
 		}
 
 		a := model.PermissionList{
@@ -178,6 +180,8 @@ func UpdateData() {
 	model.DB().AutoMigrate(&model.CoreRoleGroup{})
 	model.DB().AutoMigrate(&model.CoreWorkflowTpl{})
 	model.DB().AutoMigrate(&model.CoreWorkflowDetail{})
+	model.DB().AutoMigrate(&model.CoreTemplate{})
+	model.DB().AutoMigrate(&model.CoreProxy{})
 	model.DB().LogMode(false).Exec("alter table core_auto_tasks change COLUMN base data_base varchar(50) not null")
 	model.DB().LogMode(false).Model(&model.CoreAutoTask{}).DropColumn("base")
 	fmt.Println("数据已更新!")

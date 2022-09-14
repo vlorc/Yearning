@@ -15,11 +15,14 @@ package lib
 
 import (
 	"Yearning-go/src/model"
+	pb "Yearning-go/src/proto"
+	"context"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/cookieY/sqlx"
 	_ "github.com/go-sql-driver/mysql"
+	"log"
 	"math"
 	"math/rand"
 	"strconv"
@@ -27,8 +30,15 @@ import (
 	"time"
 )
 
-const  (
-	BUF                     = 1<<20 - 1
+type QueryDeal struct {
+	Sql              string   `json:"sql"`
+	DataBase         string   `json:"data_base"`
+	Source           string   `json:"source"`
+	InsulateWordList []string `json:"insulate_word_list"`
+}
+
+const (
+	BUF = 1<<20 - 1
 )
 
 func ResearchDel(s []string, p string) []string {
@@ -129,8 +139,9 @@ type Query struct {
 }
 
 func (q *Query) QueryRun(source *model.CoreDataSource, deal *QueryDeal) error {
+	rawurl := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4", source.Username, Decrypt(source.Password), source.IP, source.Port, deal.DataBase)
 
-	db, err := sqlx.Connect("mysql", fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4", source.Username, Decrypt(source.Password), source.IP, source.Port, deal.DataBase))
+	db, err := sql.Open("mysql", rawurl)
 
 	if err != nil {
 		return err
@@ -138,23 +149,21 @@ func (q *Query) QueryRun(source *model.CoreDataSource, deal *QueryDeal) error {
 
 	defer db.Close()
 
-	rows, err := db.Queryx(deal.Sql)
+	rows, err := db.Query(deal.Sql)
 
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 
 	cols, err := rows.Columns()
-
 	if err != nil {
 		return err
 	}
-
-	defer rows.Close()
 
 	for rows.Next() {
 		results := make(map[string]interface{})
-		_ = rows.MapScan(results)
+		_ = MapScan(rows, results)
 		for key := range results {
 			switch r := results[key].(type) {
 			case []uint8:
@@ -256,4 +265,49 @@ func MultiUserRuleMarge(group []string) model.PermissionList {
 func EmptyGroup() []byte {
 	group, _ := json.Marshal([]string{})
 	return group
+}
+
+func MapScan(r *sql.Rows, dest map[string]interface{}) error {
+	columns, err := r.Columns()
+	if err != nil {
+		return err
+	}
+
+	values := make([]interface{}, len(columns))
+	for i := range values {
+		values[i] = new(interface{})
+	}
+
+	err = r.Scan(values...)
+	if err != nil {
+		return err
+	}
+
+	ele := removeDuplicateElement(columns)
+
+	for i, column := range ele {
+		dest[column] = *(values[i].(*interface{}))
+	}
+
+	return r.Err()
+}
+
+func Limit(desc *QueryDeal, order *pb.LibraAuditOrder, proxyAlias string) error {
+	conn, err := FetchGRPCConn()
+
+	if err != nil {
+		log.Println(err.Error())
+	}
+	c := pb.NewJunoClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), TIMEOUT)
+	defer func() {
+		cancel()
+	}()
+	r, err := c.Query(ctx, order)
+	if err != nil {
+		return err
+	}
+	desc.Sql = r.SQL
+	desc.InsulateWordList = r.InsulateWordList
+	return nil
 }

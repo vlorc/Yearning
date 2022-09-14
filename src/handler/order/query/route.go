@@ -1,9 +1,11 @@
 package query
 
-import "github.com/cookieY/yee"
+import (
+	"Yearning-go/src/lib"
+)
 
-func AuditQueryRestFulAPis() yee.RestfulAPI {
-	return yee.RestfulAPI{
+func AuditQueryRestFulAPis() lib.RestfulAPI {
+	return lib.RestfulAPI{
 		Put:    AuditOrRecordQueryOrderFetchApis,
 		Delete: QueryDeleteEmptyRecord,
 		Post:   QueryHandlerSets,

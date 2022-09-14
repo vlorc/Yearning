@@ -2,36 +2,40 @@ package apis
 
 import (
 	"Yearning-go/src/handler"
-	"github.com/cookieY/yee"
+	"Yearning-go/src/handler/commom"
+	"Yearning-go/src/lib"
+	"github.com/gin-gonic/gin"
 	"net/http"
 )
 
-func YearningDashGet(y yee.Context) (err error) {
-	tp := y.Params("tp")
+func YearningDashGet(c *gin.Context) {
+	tp := c.Param("tp")
 	switch tp {
 	case "pie":
-		return handler.DashPie(y)
+		handler.DashPie(c)
 	case "axis":
-		return handler.DashAxis(y)
+		handler.DashAxis(c)
 	case "count":
-		return handler.DashCount(y)
+		handler.DashCount(c)
+	default:
+		c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
 	}
-	return y.JSON(http.StatusOK, "Illegal")
 }
 
-func YearningDashPut(y yee.Context) (err error) {
-	tp := y.Params("tp")
+func YearningDashPut(c *gin.Context) {
+	tp := c.Param("tp")
 	switch tp {
 	case "profile":
-		return handler.DashUserInfo(y)
+		handler.DashUserInfo(c)
 	case "stmt":
-		return handler.DashStmt(y)
+		handler.DashStmt(c)
+	default:
+		c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
 	}
-	return y.JSON(http.StatusOK, "Illegal")
 }
 
-func YearningDashApis() yee.RestfulAPI {
-	return yee.RestfulAPI{
+func YearningDashApis() lib.RestfulAPI {
+	return lib.RestfulAPI{
 		Get: YearningDashGet,
 		Put: YearningDashPut,
 	}

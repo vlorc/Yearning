@@ -1,61 +1,59 @@
 package lib
 
 import (
+	"Yearning-go/internal/pkg/ldap"
 	"Yearning-go/src/model"
-	"crypto/tls"
-	"errors"
-	"fmt"
-	"gopkg.in/ldap.v3"
+	"log"
 )
 
-func LdapContent(l *model.Ldap, user string, pass string, isTest bool) (isOk bool, err error) {
+func LdapLogin(l *model.Ldap, user string, pass string) bool {
+	_, err := LdapContent(l, user, pass)
+	return nil == err
+}
 
-	var ld *ldap.Conn
+func LdapContent(l *model.Ldap, user string, pass string) (*ldap.Attr, error) {
+	attr := &ldap.Attr{}
+	err := ldap.Connect(
+		ldap.Config{
+			Url:    l.Url,
+			User:   l.User,
+			Pass:   l.Password,
+			Filter: l.Type,
+			Dn:     l.Sc,
+			Ssl:    l.Ldaps,
+		},
+		ldap.Request{
+			User: user,
+			Pass: pass,
+		},
+		attr,
+	)
 
-	if l.Ldaps {
-		ld, err = ldap.DialTLS("tcp", l.Url, &tls.Config{InsecureSkipVerify: true})
-	} else {
-		ld, err = ldap.Dial("tcp", l.Url)
+	if nil != err {
+		log.Println("Ldap connect failed:", err.Error())
+		return nil, err
 	}
 
-	if err != nil {
-		return false, err
-	}
+	return attr, nil
+}
 
-	defer ld.Close()
-
-	if ld != nil {
-		if err := ld.Bind(l.User, l.Password); err != nil {
-			return false, err
-		}
-		if isTest {
-			return true, nil
-		}
-
-	}
-
-	searchRequest := ldap.NewSearchRequest(
-		l.Sc,
-		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
-		fmt.Sprintf(l.Type, user),
-		[]string{"dn"},
+func LdapTest(l *model.Ldap) error {
+	err := ldap.Connect(
+		ldap.Config{
+			Url:    l.Url,
+			User:   l.User,
+			Pass:   l.Password,
+			Filter: l.Type,
+			Dn:     l.Sc,
+			Ssl:    l.Ldaps,
+		},
+		ldap.Request{Test: true},
 		nil,
 	)
 
-	sr, err := ld.Search(searchRequest)
-
-	if err != nil {
-		return false, err
+	if nil != err {
+		log.Println("Ldap test failed:", err.Error())
 	}
 
-	if len(sr.Entries) != 1 {
-		return false, errors.New("User does not exist or too many entries returned")
-	}
-
-	userdn := sr.Entries[0].DN
-
-	if err := ld.Bind(userdn, pass); err != nil {
-		return false, err
-	}
-	return true, nil
+	return err
 }

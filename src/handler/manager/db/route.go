@@ -1,11 +1,11 @@
 package db
 
 import (
-	"github.com/cookieY/yee"
+	"Yearning-go/src/lib"
 )
 
-func ManageDbApi() yee.RestfulAPI {
-	return yee.RestfulAPI{
+func ManageDbApis() lib.RestfulAPI {
+	return lib.RestfulAPI{
 		Post:   ManageDBCreateOrEdit,
 		Delete: SuperDeleteSource,
 		Put:    SuperFetchSource,

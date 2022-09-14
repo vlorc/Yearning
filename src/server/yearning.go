@@ -11,37 +11,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package service
+package server
 
 import (
+	"Yearning-go/src/middleware"
 	"Yearning-go/src/model"
 	_ "Yearning-go/src/model"
 	"Yearning-go/src/parser"
 	"Yearning-go/src/router"
+	"Yearning-go/web"
 	"encoding/json"
-	"github.com/cookieY/yee"
-	"github.com/cookieY/yee/middleware"
-	"github.com/gobuffalo/packr/v2"
+	"github.com/gin-gonic/gin"
 	"net/http"
 )
 
-func StartYearning(addr string, host string) {
-	box := packr.New("gemini", "./dist")
+func StartYearning(addr, host, front string) {
+	box := web.FS(front)
 	model.DB().First(&model.GloPer)
 	model.Host = host
 	_ = json.Unmarshal(model.GloPer.Message, &model.GloMessage)
 	_ = json.Unmarshal(model.GloPer.Ldap, &model.GloLdap)
 	_ = json.Unmarshal(model.GloPer.Other, &model.GloOther)
 	_ = json.Unmarshal(model.GloPer.AuditRole, &parser.FetchAuditRole)
-	e := yee.New()
-	e.Packr("/front", http.FileSystem(box))
+	e := gin.New()
+	e.StaticFS("/front", http.FS(box))
 	e.Use(middleware.Cors())
 	e.Use(middleware.Logger())
 	e.Use(middleware.Secure())
-	e.Use(middleware.Recovery())
-	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{
-		Level: 5,
-	}))
+	e.Use(middleware.Recovery(nil))
+
 	router.AddRouter(e, box)
 	e.Run(addr)
 }

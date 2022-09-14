@@ -1,9 +1,11 @@
 package settings
 
-import "github.com/cookieY/yee"
+import (
+	"Yearning-go/src/lib"
+)
 
-func SettingsApis() yee.RestfulAPI {
-	return yee.RestfulAPI{
+func SettingsApis() lib.RestfulAPI {
+	return lib.RestfulAPI{
 		Get:    SuperFetchSetting,
 		Post:   SuperSaveSetting,
 		Put:    SuperTestSetting,

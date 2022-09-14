@@ -1,9 +1,11 @@
 package osc
 
-import "github.com/cookieY/yee"
+import (
+	"Yearning-go/src/lib"
+)
 
-func AuditOSCFetchStateApis() yee.RestfulAPI {
-	return yee.RestfulAPI{
+func AuditOSCFetchStateApis() lib.RestfulAPI {
+	return lib.RestfulAPI{
 		Get:    OscPercent,
 		Delete: OscKill,
 	}

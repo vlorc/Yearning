@@ -14,7 +14,7 @@ const (
 	USER_EDIT_PASSWORD_SUCCESS = "密码修改成功！"
 	ADMIN_NOT_DELETE           = "admin用户无法被删除!"
 
-	CommonExpr = "username,rule,id,department,real_name,email"
+	CommonExpr = "username,rule,id,department,real_name,email,mobile"
 )
 
 type CommonUserPost struct {

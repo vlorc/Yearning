@@ -17,18 +17,19 @@ import (
 	"Yearning-go/src/handler/commom"
 	"Yearning-go/src/lib"
 	"Yearning-go/src/model"
-	"github.com/cookieY/yee"
+	"github.com/gin-gonic/gin"
 	"net/http"
 	"time"
 )
 
-func SQLReferToOrder(c yee.Context) (err error) {
+func SQLReferToOrder(c *gin.Context) {
 
 	u := new(model.CoreSqlOrder)
 	user, _ := lib.JwtParse(c)
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 	if u.WorkId != "" {
 		var origin model.CoreSqlOrder
@@ -54,9 +55,9 @@ func SQLReferToOrder(c yee.Context) (err error) {
 		Time:     time.Now().Format("2006-01-02 15:04"),
 	})
 
-	lib.MessagePush(w, 2, "")
+	lib.MessagePush(w, lib.EVENT_ORDER_EXEC_CREATE, "")
 
 	CallAutoTask(u, w, c)
 
-	return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(ORDER_POST_SUCCESS))
+	c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(ORDER_POST_SUCCESS))
 }

@@ -1,9 +1,9 @@
 package roles
 
-import "github.com/cookieY/yee"
+import "Yearning-go/src/lib"
 
-func RolesApis() yee.RestfulAPI {
-	return yee.RestfulAPI{
+func RolesApis() lib.RestfulAPI {
+	return lib.RestfulAPI{
 		Put:  SuperFetchRoles,
 		Post: SuperSaveRoles,
 	}

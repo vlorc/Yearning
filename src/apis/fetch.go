@@ -1,67 +1,72 @@
 package apis
 
 import (
+	"Yearning-go/src/handler/commom"
 	"Yearning-go/src/handler/fetch"
 	"Yearning-go/src/handler/manager/group"
-	"github.com/cookieY/yee"
+	"Yearning-go/src/lib"
+	"github.com/gin-gonic/gin"
 	"net/http"
 )
 
-func FetchResourceForGet(y yee.Context) (err error) {
-	tp := y.Params("tp")
+func FetchResourceForGet(c *gin.Context) {
+	tp := c.Param("tp")
 	switch tp {
 	case "detail":
-		return fetch.FetchOrderDetailList(y)
+		fetch.FetchOrderDetailList(c)
 	case "roll":
-		return fetch.FetchOrderDetailRollSQL(y)
+		fetch.FetchOrderDetailRollSQL(c)
 	case "undo":
-		return fetch.FetchUndo(y)
+		fetch.FetchUndo(c)
 	case "sql":
-		return fetch.FetchSQLInfo(y)
+		fetch.FetchSQLInfo(c)
 	case "perform":
-		return fetch.FetchPerformList(y)
+		fetch.FetchPerformList(c)
 	case "idc":
-		return fetch.FetchIDC(y)
+		fetch.FetchIDC(c)
 	case "source":
-		return fetch.FetchSource(y)
+		fetch.FetchSource(c)
 	case "base":
-		return fetch.FetchBase(y)
+		fetch.FetchBase(c)
 	case "table":
-		return fetch.FetchTable(y)
+		fetch.FetchTable(c)
 	case "fields":
-		return fetch.FetchTableInfo(y)
+		fetch.FetchTableInfo(c)
 	case "steps":
-		return fetch.FetchStepsProfile(y)
+		fetch.FetchStepsProfile(c)
 	case "board":
-		return fetch.FetchBoard(y)
+		fetch.FetchBoard(c)
+	default:
+		c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
 	}
-	return y.JSON(http.StatusOK, "Illegal")
 }
 
-func FetchResourceForPut(y yee.Context) (err error) {
-	tp := y.Params("tp")
+func FetchResourceForPut(c *gin.Context) {
+	tp := c.Param("tp")
 	switch tp {
 	case "test":
-		return fetch.FetchSQLTest(y)
+		fetch.FetchSQLTest(c)
 	case "merge":
-		return fetch.FetchMergeDDL(y)
+		fetch.FetchMergeDDL(c)
+	default:
+		c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
 	}
-	return y.JSON(http.StatusOK, "Illegal")
 }
 
-func FetchResourceForPost(y yee.Context) (err error) {
-	tp := y.Params("tp")
+func FetchResourceForPost(c *gin.Context) {
+	tp := c.Param("tp")
 	switch tp {
 	case "marge":
-		return group.SuperUserRuleMarge(y)
+		group.SuperUserRuleMarge(c)
 	case "roll_order":
-		return fetch.RollBackSQLOrder(y)
+		fetch.RollBackSQLOrder(c)
+	default:
+		c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
 	}
-	return y.JSON(http.StatusOK, "Illegal")
 }
 
-func YearningFetchApis() yee.RestfulAPI {
-	return yee.RestfulAPI{
+func YearningFetchApis() lib.RestfulAPI {
+	return lib.RestfulAPI{
 		Post: FetchResourceForPost,
 		Get:  FetchResourceForGet,
 		Put:  FetchResourceForPut,

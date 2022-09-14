@@ -1,9 +1,11 @@
 package personal
 
-import "github.com/cookieY/yee"
+import (
+	"Yearning-go/src/lib"
+)
 
-func PersonalRestFulAPis()  yee.RestfulAPI{
-	return yee.RestfulAPI{
+func PersonalRestFulAPis()  lib.RestfulAPI{
+	return lib.RestfulAPI{
 		Post:    SQLReferToOrder,
 		Put:    PersonalFetchOrderListOrProfile,
 	}

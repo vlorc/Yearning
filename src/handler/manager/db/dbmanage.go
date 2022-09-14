@@ -18,15 +18,15 @@ import (
 	"Yearning-go/src/lib"
 	"Yearning-go/src/model"
 	"encoding/json"
-	"github.com/cookieY/yee"
+	"github.com/gin-gonic/gin"
 	"net/http"
 	"net/url"
 )
 
-func SuperFetchSource(c yee.Context) (err error) {
+func SuperFetchSource(c *gin.Context) {
 	req := new(fetchDB)
-	if err = c.Bind(req); err != nil {
-		c.Logger().Error(err.Error())
+	if err := c.Bind(req); err != nil {
+		// c.Logger().Error(err.Error())
 		return
 	}
 	start, end := lib.Paging(req.Page, 10)
@@ -43,14 +43,15 @@ func SuperFetchSource(c yee.Context) (err error) {
 	for idx := range u {
 		u[idx].Password = "***********"
 	}
-	return c.JSON(http.StatusOK, commom.SuccessPayload(commom.CommonList{Page: pg, Data: u, IDC: model.GloOther.IDC}))
+	c.JSON(http.StatusOK, commom.SuccessPayload(commom.CommonList{Page: pg, Data: u, IDC: model.GloOther.IDC}))
+	return
 }
 
-func SuperDeleteSource(c yee.Context) (err error) {
+func SuperDeleteSource(c *gin.Context) {
 
 	var k []model.CoreRoleGroup
 
-	source := c.QueryParam("source")
+	source := c.Query("source")
 
 	unescape, _ := url.QueryUnescape(source)
 
@@ -59,14 +60,15 @@ func SuperDeleteSource(c yee.Context) (err error) {
 	tx := model.DB().Begin()
 	if er := tx.Where("source =?", unescape).Delete(&model.CoreDataSource{}).Error; er != nil {
 		tx.Rollback()
-		c.Logger().Error(er.Error())
-		return c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		// c.Logger().Error(er.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 
 	for i := range k {
 		var p model.PermissionList
 		if err := json.Unmarshal(k[i].Permissions, &p); err != nil {
-			c.Logger().Error(err.Error())
+			// c.Logger().Error(err.Error())
 		}
 		p.DDLSource = lib.ResearchDel(p.DDLSource, source)
 		p.DMLSource = lib.ResearchDel(p.DMLSource, source)
@@ -74,27 +76,29 @@ func SuperDeleteSource(c yee.Context) (err error) {
 		r, _ := json.Marshal(p)
 		if e := tx.Model(&model.CoreRoleGroup{}).Where("id =?", k[i].ID).Update(model.CoreRoleGroup{Permissions: r}).Error; e != nil {
 			tx.Rollback()
-			c.Logger().Error(e.Error())
+			// c.Logger().Error(e.Error())
 		}
 	}
 
 	tx.Commit()
-	return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.DATA_IS_DELETE))
+	c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.DATA_IS_DELETE))
 }
 
-func ManageDBCreateOrEdit(c yee.Context) (err error) {
+func ManageDBCreateOrEdit(c *gin.Context) {
 	u := new(CommonDBPost)
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 	switch u.Tp {
 	case "edit":
-		return c.JSON(http.StatusOK, SuperEditSource(&u.DB))
+		c.JSON(http.StatusOK, SuperEditSource(&u.DB))
 	case "create":
-		return c.JSON(http.StatusOK, SuperCreateSource(&u.DB))
+		c.JSON(http.StatusOK, SuperCreateSource(&u.DB))
 	case "test":
-		return c.JSON(http.StatusOK, SuperTestDBConnect(&u.DB))
+		c.JSON(http.StatusOK, SuperTestDBConnect(&u.DB))
+	default:
+		c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
 	}
-	return c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
 }

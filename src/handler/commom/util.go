@@ -3,9 +3,12 @@ package commom
 import (
 	"Yearning-go/src/lib"
 	"Yearning-go/src/model"
+	"encoding/hex"
 	"fmt"
 	"github.com/jinzhu/gorm"
+	"net"
 	"strconv"
+	"strings"
 )
 
 type _dbInfo struct {
@@ -24,8 +27,12 @@ type Resp struct {
 func ScanDataRows(s model.CoreDataSource, database, sql, meta string, isQuery bool) (res _dbInfo, err error) {
 
 	ps := lib.Decrypt(s.Password)
+	host := s.IP
+	if "" != s.Proxy {
+		host = strings.Join([]string{lib.PROXY_PREFIX, s.Proxy, "_", hex.EncodeToString([]byte(net.JoinHostPort(s.IP, strconv.Itoa(s.Port))))}, "")
+	}
 
-	db, err := gorm.Open("mysql", fmt.Sprintf("%s:%s@(%s:%s)/%s?charset=utf8&parseTime=True&loc=Local", s.Username, ps, s.IP, strconv.Itoa(int(s.Port)), database))
+	db, err := gorm.Open("mysql", fmt.Sprintf("%s:%s@(%s:%s)/%s?charset=utf8&parseTime=True&loc=Local", s.Username, ps, host, strconv.Itoa(int(s.Port)), database))
 
 	defer func() {
 		_ = db.Close()

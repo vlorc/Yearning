@@ -40,17 +40,18 @@ type Other struct {
 }
 
 type Message struct {
-	WebHook  string `json:"web_hook"`
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	User     string `json:"user"`
-	Password string `json:"password"`
-	ToUser   string `json:"to_user"`
-	Mail     bool   `json:"mail"`
-	Ding     bool   `json:"ding"`
-	Ssl      bool   `json:"ssl"`
-	PushType bool   `json:"push_type"`
-	Key      string `json:"key"`
+	WebHookUrl string `json:"web_hook_url"`
+	Host       string `json:"host"`
+	Port       int    `json:"port"`
+	User       string `json:"user"`
+	Password   string `json:"password"`
+	ToUser     string `json:"to_user"`
+	Mail       bool   `json:"mail"`
+	WebHook    bool   `json:"web_hook"`
+	Ssl        bool   `json:"ssl"`
+	PushType   bool   `json:"push_type"`
+	Key        string `json:"key"`
+	Token      string `json:"token"`
 }
 
 type Ldap struct {
@@ -59,6 +60,7 @@ type Ldap struct {
 	Password string `json:"password"`
 	Type     string `json:"type"`
 	Sc       string `json:"sc"`
+	Admin    string `json:"admin"`
 	Ldaps    bool   `json:"ldaps"`
 }
 

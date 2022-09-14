@@ -1,9 +1,11 @@
 package user
 
-import "github.com/cookieY/yee"
+import (
+	"Yearning-go/src/lib"
+)
 
-func SuperUserApi() yee.RestfulAPI {
-	return yee.RestfulAPI{
+func SuperUserApis() lib.RestfulAPI {
+	return lib.RestfulAPI{
 		Put:    SuperFetchUser,
 		Post:   ManageUserCreateOrEdit,
 		Delete: SuperDeleteUser,

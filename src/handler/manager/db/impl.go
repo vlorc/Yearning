@@ -4,9 +4,13 @@ import (
 	"Yearning-go/src/handler/commom"
 	"Yearning-go/src/lib"
 	"Yearning-go/src/model"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/jinzhu/gorm"
+	"net"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -29,7 +33,12 @@ type CommonDBPost struct {
 }
 
 func ConnTest(u *model.CoreDataSource) error {
-	db, err := gorm.Open("mysql", fmt.Sprintf("%s:%s@(%s:%d)/?charset=utf8&parseTime=True&loc=Local", u.Username, u.Password, u.IP, u.Port))
+	host := u.IP
+	if "" != u.Proxy {
+		host = strings.Join([]string{lib.PROXY_PREFIX, u.Proxy, "_", hex.EncodeToString([]byte(net.JoinHostPort(u.IP, strconv.Itoa(u.Port))))}, "")
+	}
+
+	db, err := gorm.Open("mysql", fmt.Sprintf("%s:%s@(%s:%d)/?charset=utf8&parseTime=True&loc=Local", u.Username, u.Password, host, u.Port))
 	defer func() {
 		_ = db.Close()
 	}()

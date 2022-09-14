@@ -8,14 +8,14 @@ const (
 	GROUP_EDIT_SUCCESS = "%s的权限已更新！"
 )
 
-type k struct {
+type updateReq struct {
 	Username   string
 	Permission model.PermissionList
 	Tp         int
 	Group      []string
 }
 
-type marge struct {
+type margeReq struct {
 	Username   string `json:"username"`
 	Group  string `json:"group"`
 	IsShow bool   `json:"is_show"`

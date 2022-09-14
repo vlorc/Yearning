@@ -1,17 +1,17 @@
 package personal
 
 import (
-	tpl2 "Yearning-go/src/handler/manager/tpl"
+	"Yearning-go/src/handler/manager/flow"
 	"Yearning-go/src/handler/order/audit"
 	"Yearning-go/src/lib"
 	"Yearning-go/src/model"
 	pb "Yearning-go/src/proto"
 	"encoding/json"
-	"github.com/cookieY/yee"
+	"github.com/gin-gonic/gin"
 	"time"
 )
 
-func CallAutoTask(u *model.CoreSqlOrder, w string, c yee.Context) {
+func CallAutoTask(u *model.CoreSqlOrder, w string, c *gin.Context) {
 	// todo 以下代码为autoTask代码
 	var sor model.CoreDataSource
 	model.DB().Where("source =?", u.Source).First(&sor)
@@ -28,7 +28,7 @@ func CallAutoTask(u *model.CoreSqlOrder, w string, c yee.Context) {
 		},
 		SQL: u.SQL,
 	}
-	r := lib.ExAutoTask(&s)
+	r := lib.ExAutoTask(&s, sor.Proxy)
 	if r {
 		// todo 调整参数
 		s.IsDML = true
@@ -46,7 +46,7 @@ func CallAutoTask(u *model.CoreSqlOrder, w string, c yee.Context) {
 				for {
 					select {
 					case <-tick.C:
-						lib.ExDMLClient(&rx.Juno)
+						lib.ExDMLClient(&rx.Juno, sor.Proxy)
 						tick.Stop()
 						goto ENDCHECK
 					}
@@ -54,15 +54,15 @@ func CallAutoTask(u *model.CoreSqlOrder, w string, c yee.Context) {
 					break
 				}
 			} else {
-				lib.ExDMLClient(&rx.Juno)
+				lib.ExDMLClient(&rx.Juno, sor.Proxy)
 			}
 
 		}()
 
-		var whoIsAuditor []tpl2.Tpl
-		var tpl model.CoreWorkflowTpl
-		model.DB().Where("source =?", s.Name).First(&tpl)
-		_ = json.Unmarshal(tpl.Steps, &whoIsAuditor)
+		var whoIsAuditor []flow.Step
+		var ft model.CoreWorkflowTpl
+		model.DB().Where("source =?", s.Name).First(&ft)
+		_ = json.Unmarshal(ft.Steps, &whoIsAuditor)
 		model.DB().Model(&model.CoreSqlOrder{}).Where("work_id =?", w).Updates(&model.CoreSqlOrder{Status: 3})
 		model.DB().Create(&model.CoreWorkflowDetail{
 			WorkId:   w,

@@ -1,14 +1,13 @@
-package tpl
+package flow
 
-
-type Tpl struct {
+type Step struct {
 	Desc    string   `json:"desc"`
 	Auditor []string `json:"auditor"`
 	Type    int      `json:"type"`
 }
 
-type tplTypes struct {
-	Steps    []Tpl  `json:"steps"`
+type flowReq struct {
+	Steps    []Step  `json:"steps"`
 	Source   string `json:"source"`
 	Relevant int    `json:"relevant"`
 }

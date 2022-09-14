@@ -17,15 +17,16 @@ import (
 	"Yearning-go/src/handler/commom"
 	"Yearning-go/src/lib"
 	"Yearning-go/src/model"
-	"github.com/cookieY/yee"
+	"github.com/gin-gonic/gin"
 	"net/http"
 )
 
-func SuperFetchAutoTaskList(c yee.Context) (err error) {
+func SuperFetchAutoTaskList(c *gin.Context) {
 	u := new(fetchAutoTask)
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 	var task []model.CoreAutoTask
 	var pg int
@@ -35,20 +36,21 @@ func SuperFetchAutoTaskList(c yee.Context) (err error) {
 	} else {
 		model.DB().Model(model.CoreAutoTask{}).Order("id desc").Count(&pg).Offset(start).Limit(end).Find(&task)
 	}
-	return c.JSON(http.StatusOK, commom.SuccessPayload(commom.CommonList{Data: task, Page: pg}))
+	c.JSON(http.StatusOK, commom.SuccessPayload(commom.CommonList{Data: task, Page: pg}))
 }
 
-func SuperDeleteAutoTask(c yee.Context) (err error) {
-	id := c.QueryParam("id")
+func SuperDeleteAutoTask(c *gin.Context) {
+	id := c.Query("id")
 	model.DB().Where("id =?", id).Delete(&model.CoreAutoTask{})
-	return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.ORDER_IS_DELETE))
+	c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.ORDER_IS_DELETE))
 }
 
-func SuperAutoTaskCreateOrEdit(c yee.Context) (err error) {
+func SuperAutoTaskCreateOrEdit(c *gin.Context) {
 	u := new(fetchAutoTask)
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 	switch u.Tp {
 	case "create":
@@ -58,5 +60,5 @@ func SuperAutoTaskCreateOrEdit(c yee.Context) (err error) {
 	case "active":
 		u.Activation()
 	}
-	return c.JSON(http.StatusOK,u.Resp)
+	c.JSON(http.StatusOK,u.Resp)
 }

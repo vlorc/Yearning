@@ -5,16 +5,17 @@ import (
 	"Yearning-go/src/lib"
 	"Yearning-go/src/model"
 	pb "Yearning-go/src/proto"
-	"github.com/cookieY/yee"
+	"github.com/gin-gonic/gin"
 	"net/http"
 	"time"
 )
 
-func SuperSQLTest(c yee.Context) (err error) {
+func SuperSQLTest(c *gin.Context) {
 	u := new(commom.SQLTest)
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 	var s model.CoreDataSource
 	var order model.CoreSqlOrder
@@ -33,17 +34,19 @@ func SuperSQLTest(c yee.Context) (err error) {
 		Execute: false,
 		Check:   true,
 	}
-	record, err := lib.TsClient(&y)
+	record, err := lib.TsClient(&y, s.Proxy)
 	if err != nil {
-		return c.JSON(http.StatusOK, commom.ERR_COMMON_MESSAGE(err))
+		c.JSON(http.StatusOK, commom.ERR_COMMON_MESSAGE(err))
+		return
 	}
-	return c.JSON(http.StatusOK, commom.SuccessPayload(record))
+	c.JSON(http.StatusOK, commom.SuccessPayload(record))
 }
 
-func ExecuteOrder(c yee.Context) (err error) {
+func ExecuteOrder(c *gin.Context) {
 	u := new(commom.ExecuteStr)
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
 		return
 	}
 	user, _ := lib.JwtParse(c)
@@ -52,13 +55,13 @@ func ExecuteOrder(c yee.Context) (err error) {
 	model.DB().Where("work_id =?", u.WorkId).First(&order)
 
 	if order.Status != 2 && order.Status != 5 {
-		c.Logger().Error(IDEMPOTENT)
-		return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(IDEMPOTENT))
+		// c.Logger().Error(IDEMPOTENT)
+		c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(IDEMPOTENT))
+		return
 	}
 
 	if order.Type == 3 {
 		model.DB().Model(&model.CoreSqlOrder{}).Where("work_id =?", u.WorkId).Updates(map[string]interface{}{"status": 1, "execute_time": time.Now().Format("2006-01-02 15:04"), "current_step": order.CurrentStep + 1})
-		lib.MessagePush(u.WorkId, 1, "")
 	} else {
 		executor := new(Review)
 
@@ -73,33 +76,37 @@ func ExecuteOrder(c yee.Context) (err error) {
 		Time:     time.Now().Format("2006-01-02 15:04"),
 		Action:   ORDER_EXECUTE_STATE,
 	})
+	
+	lib.MessagePush(u.WorkId, lib.EVENT_ORDER_EXEC_PASS, "")
 
-	return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(ORDER_EXECUTE_STATE))
+	c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(ORDER_EXECUTE_STATE))
 }
 
-func AuditOrderState(c yee.Context) (err error) {
+func AuditOrderState(c *gin.Context) {
 	u := new(commom.ExecuteStr)
 	user, _ := lib.JwtParse(c)
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 	switch u.Tp {
 	case "agree":
-		return c.JSON(http.StatusOK, MultiAuditOrder(u, user))
+		c.JSON(http.StatusOK, MultiAuditOrder(u, user))
 	case "reject":
-		return c.JSON(http.StatusOK, RejectOrder(u, user))
+		c.JSON(http.StatusOK, RejectOrder(u, user))
 	default:
-		return c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
+		c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
 	}
 }
 
-//DelayKill will stop delay order
-func DelayKill(c yee.Context) (err error) {
+// DelayKill will stop delay order
+func DelayKill(c *gin.Context) {
 	u := new(commom.ExecuteStr)
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 	user, _ := lib.JwtParse(c)
 	model.DB().Create(&model.CoreWorkflowDetail{
@@ -108,13 +115,14 @@ func DelayKill(c yee.Context) (err error) {
 		Time:     time.Now().Format("2006-01-02 15:04"),
 		Action:   ORDER_KILL_STATE,
 	})
-	return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(delayKill(u.WorkId)))
+	c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(delayKill(u.WorkId)))
 }
 
-func FetchAuditOrder(c yee.Context) (err error) {
+func FetchAuditOrder(c *gin.Context) {
 	u := new(commom.PageInfo)
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
 		return
 	}
 	user, _ := lib.JwtParse(c)
@@ -122,43 +130,44 @@ func FetchAuditOrder(c yee.Context) (err error) {
 		commom.AccordingToRelevant(user),
 		commom.AccordingToText(u.Find.Text),
 		commom.AccordingToDatetime(u.Find.Picker))
-	return c.JSON(http.StatusOK, commom.SuccessPayload(order))
+	c.JSON(http.StatusOK, commom.SuccessPayload(order))
 }
 
-func FetchRecord(c yee.Context) (err error) {
+func FetchRecord(c *gin.Context) {
 	u := new(commom.PageInfo)
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
 		return
 	}
 	order := u.GetSQLOrderList(commom.AccordingToOrderState(),
 		commom.AccordingToWorkId(u.Find.Text),
 		commom.AccordingToDatetime(u.Find.Picker))
-	return c.JSON(http.StatusOK, commom.SuccessPayload(order))
+	c.JSON(http.StatusOK, commom.SuccessPayload(order))
 }
 
-func AuditOrderApis(c yee.Context) (err error) {
-	switch c.Params("tp") {
+func AuditOrderApis(c *gin.Context) {
+	switch c.Param("tp") {
 	case "test":
-		return SuperSQLTest(c)
+		SuperSQLTest(c)
 	case "state":
-		return AuditOrderState(c)
+		AuditOrderState(c)
 	case "execute":
-		return ExecuteOrder(c)
+		ExecuteOrder(c)
 	case "kill":
-		return DelayKill(c)
+		DelayKill(c)
 	default:
-		return c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
+		c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
 	}
 }
 
-func AuditOrRecordOrderFetchApis(c yee.Context) (err error) {
-	switch c.Params("tp") {
+func AuditOrRecordOrderFetchApis(c *gin.Context) {
+	switch c.Param("tp") {
 	case "list":
-		return FetchAuditOrder(c)
+		FetchAuditOrder(c)
 	case "record":
-		return FetchRecord(c)
+		FetchRecord(c)
 	default:
-		return c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
+		c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
 	}
 }

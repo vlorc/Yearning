@@ -1,4 +1,4 @@
-package tpl
+package flow
 
 import (
 	"Yearning-go/src/handler/commom"
@@ -22,8 +22,8 @@ func teardown() {
 
 var apis = test.Case{
 	Method:  http.MethodPost,
-	Uri:     "/api/v2/manage/tpl",
-	Handler: TplRestApis(),
+	Uri:     "/api/v2/manage/flow",
+	Handler: FlowRestApis(),
 }
 
 func TestMain(m *testing.M) {
@@ -48,11 +48,11 @@ func TestTplPostSourceTemplate(t *testing.T) {
 
 	args = `{"steps":[{"desc": "提交阶段", "type": 0, "auditor": ["提交人"]}, {"desc": "321", "type": 2, "auditor": ["admin", "hj"]}],"source":"test"}`
 	apis.Post(args).Do().Unmarshal(&Ref)
-	var tpl model.CoreWorkflowTpl
-	var steps []Tpl
-	model.DB().Where("source =?", "test").Find(&tpl)
-	_ = json.Unmarshal(tpl.Steps, &steps)
-	assert.Equal(t, 2, steps[1].Type)
+	var flow model.CoreWorkflowTpl
+	var steps []Step
+	model.DB().Where("source =?", "test").Find(&flow)
+	_ = json.Unmarshal(flow.Steps, &steps)
+	assert.Equal(t, 2, steps[1])
 
 	args = `{"steps:{"desc": "提交阶段", "type": 0, "auditor": ["提交人"]}, {"desc": "321", "type": 2, "auditor": ["admin", "hj"]}],"source":"test"}`
 	apis.Post(args).Do().Unmarshal(&Ref)

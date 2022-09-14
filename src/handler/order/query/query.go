@@ -4,15 +4,16 @@ import (
 	"Yearning-go/src/handler/commom"
 	"Yearning-go/src/lib"
 	"Yearning-go/src/model"
-	"github.com/cookieY/yee"
+	"github.com/gin-gonic/gin"
 	"net/http"
 	"time"
 )
 
-func FetchQueryRecord(c yee.Context) (err error) {
+func FetchQueryRecord(c *gin.Context) {
 	u := new(commom.PageInfo)
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
 		return
 	}
 	order := u.GetSQLQueryList(
@@ -20,14 +21,15 @@ func FetchQueryRecord(c yee.Context) (err error) {
 		commom.AccordingToWorkId(u.Find.Text),
 		commom.AccordingToDate(u.Find.Picker),
 	)
-	return c.JSON(http.StatusOK, commom.SuccessPayload(order))
+	c.JSON(http.StatusOK, commom.SuccessPayload(order))
 }
 
-func FetchQueryOrder(c yee.Context) (err error) {
+func FetchQueryOrder(c *gin.Context) {
 
 	u := new(commom.PageInfo)
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
 		return
 	}
 	user, _ := lib.JwtParse(c)
@@ -37,23 +39,24 @@ func FetchQueryOrder(c yee.Context) (err error) {
 		commom.AccordingToDate(u.Find.Picker),
 		commom.AccordingToAllQueryOrderState(u.Find.Status),
 	)
-	return c.JSON(http.StatusOK, commom.SuccessPayload(order))
+	c.JSON(http.StatusOK, commom.SuccessPayload(order))
 }
 
-func FetchQueryRecordProfile(c yee.Context) (err error) {
+func FetchQueryRecordProfile(c *gin.Context) {
 	u := new(commom.ExecuteStr)
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
 		return
 	}
 	start, end := lib.Paging(u.Page, 20)
 	var detail []model.CoreQueryRecord
 	var count int
 	model.DB().Model(&model.CoreQueryRecord{}).Where("work_id =?", u.WorkId).Count(&count).Offset(start).Limit(end).Find(&detail)
-	return c.JSON(http.StatusOK, commom.SuccessPayload(commom.CommonList{Data: detail, Page: count}))
+	c.JSON(http.StatusOK, commom.SuccessPayload(commom.CommonList{Data: detail, Page: count}))
 }
 
-func QueryDeleteEmptyRecord(c yee.Context) (err error) {
+func QueryDeleteEmptyRecord(c *gin.Context) {
 	var j []model.CoreQueryOrder
 	model.DB().Select("work_id").Where(`query_per =?`, 3).Find(&j)
 	for _, i := range j {
@@ -62,50 +65,51 @@ func QueryDeleteEmptyRecord(c yee.Context) (err error) {
 			model.DB().Where("work_id =?", i.WorkId).Delete(&model.CoreQueryOrder{})
 		}
 	}
-	return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.ORDER_IS_CLEAR))
+	c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.ORDER_IS_CLEAR))
 }
 
-func QueryHandlerSets(c yee.Context) (err error) {
+func QueryHandlerSets(c *gin.Context) {
 	u := new(commom.QueryOrder)
 	var s model.CoreQueryOrder
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusOK, err.Error())
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 	found := !model.DB().Where("work_id=? AND query_per=?", u.WorkId, 2).First(&s).RecordNotFound()
 	switch u.Tp {
 	case "agreed":
 		if found {
 			model.DB().Model(model.CoreQueryOrder{}).Where("work_id =?", u.WorkId).Update(map[string]interface{}{"query_per": 1, "ex_date": time.Now().Format("2006-01-02 15:04")})
-			lib.MessagePush(u.WorkId, 8, "")
+			lib.MessagePush(u.WorkId, lib.EVENT_ORDER_QUERY_PASS, "")
 		}
-		return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.ORDER_IS_AGREE))
+		c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.ORDER_IS_AGREE))
 	case "reject":
 		if found {
 			model.DB().Model(model.CoreQueryOrder{}).Where("work_id =?", u.WorkId).Update(map[string]interface{}{"query_per": 0})
-			lib.MessagePush(u.WorkId, 9, "")
+			lib.MessagePush(u.WorkId, lib.EVENT_ORDER_QUERY_REJECT, "")
 		}
-		return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.ORDER_IS_REJECT))
+		c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.ORDER_IS_REJECT))
 	case "stop":
 		model.DB().Model(model.CoreQueryOrder{}).Where("work_id =?", u.WorkId).Update(map[string]interface{}{"query_per": 3})
-		return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.ORDER_IS_ALL_END))
+		c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.ORDER_IS_ALL_END))
 	case "cancel":
 		model.DB().Model(model.CoreQueryOrder{}).Updates(&model.CoreQueryOrder{QueryPer: 3})
-		return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.ORDER_IS_ALL_CANCEL))
+		c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.ORDER_IS_ALL_CANCEL))
 	default:
-		return
+		c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
 	}
 }
 
-func AuditOrRecordQueryOrderFetchApis(c yee.Context) (err error) {
-	switch c.Params("tp") {
+func AuditOrRecordQueryOrderFetchApis(c *gin.Context) {
+	switch c.Param("tp") {
 	case "list":
-		return FetchQueryOrder(c)
+		FetchQueryOrder(c)
 	case "record":
-		return FetchQueryRecord(c)
+		FetchQueryRecord(c)
 	case "profile":
-		return FetchQueryRecordProfile(c)
+		FetchQueryRecordProfile(c)
 	default:
-		return c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
+		c.JSON(http.StatusOK, commom.ERR_REQ_FAKE)
 	}
 }

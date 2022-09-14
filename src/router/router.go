@@ -19,105 +19,112 @@ import (
 	autoTask2 "Yearning-go/src/handler/manager/autoTask"
 	"Yearning-go/src/handler/manager/board"
 	db2 "Yearning-go/src/handler/manager/db"
+	flow2 "Yearning-go/src/handler/manager/flow"
 	group2 "Yearning-go/src/handler/manager/group"
+	proxy2 "Yearning-go/src/handler/manager/proxy"
 	roles2 "Yearning-go/src/handler/manager/roles"
 	"Yearning-go/src/handler/manager/settings"
-	tpl2 "Yearning-go/src/handler/manager/tpl"
+	template2 "Yearning-go/src/handler/manager/template"
 	user2 "Yearning-go/src/handler/manager/user"
 	audit2 "Yearning-go/src/handler/order/audit"
 	"Yearning-go/src/handler/order/osc"
 	query2 "Yearning-go/src/handler/order/query"
 	"Yearning-go/src/handler/personal"
 	"Yearning-go/src/lib"
+	"Yearning-go/src/middleware"
 	"Yearning-go/src/model"
-	"github.com/cookieY/yee"
-	"github.com/cookieY/yee/middleware"
-	"github.com/gobuffalo/packr/v2"
+	"github.com/gin-gonic/gin"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 )
 
-func SuperManageGroup() yee.HandlerFunc {
-	return func(c yee.Context) (err error) {
+func SuperManageGroup() gin.HandlerFunc {
+	return func(c *gin.Context) {
 		_, role := lib.JwtParse(c)
 		if role == "super" || focalPoint(c) {
 			return
 		}
-		return c.ServerError(http.StatusForbidden, "非法越权操作！")
+		c.String(http.StatusForbidden, "非法越权操作！")
 	}
 }
 
-func focalPoint(c yee.Context) bool {
+func focalPoint(c *gin.Context) bool {
 
-	if strings.Contains(c.RequestURI(), "/api/v2/manage/tpl") && c.Request().Method == http.MethodPut {
+	if strings.Contains(c.Request.RequestURI, "/api/v2/manage/flow") && c.Request.Method == http.MethodPut {
 		return true
 	}
 
-	if strings.Contains(c.RequestURI(), "/api/v2/manage/group") && c.Request().Method == http.MethodGet {
+	if strings.Contains(c.Request.RequestURI, "/api/v2/manage/group") && c.Request.Method == http.MethodGet {
 		return true
 	}
 	return false
 }
 
-func AuditGroup() yee.HandlerFunc {
-	return func(c yee.Context) (err error) {
+func AuditGroup() gin.HandlerFunc {
+	return func(c *gin.Context) {
 		_, rule := lib.JwtParse(c)
 		if rule != "guest" {
 			return
 		}
-		return c.ServerError(http.StatusForbidden, "非法越权操作！")
+		c.String(http.StatusForbidden, "非法越权操作！")
 	}
 }
 
-func AddRouter(e *yee.Core, box *packr.Box) {
+func AddRouter(e gin.IRouter, box fs.FS) {
 	if os.Getenv("DEV") == "" {
-		s, err := box.FindString("index.html")
+		s, err := fs.ReadFile(box, "index.html")
 		if err != nil {
 			log.Fatal(err)
 		}
-		e.GET("/", func(c yee.Context) error {
-			return c.HTML(http.StatusOK, s)
+		e.GET("/", func(c *gin.Context) {
+			c.Data(http.StatusOK, "text/html; charset=utf-8", s)
 		})
 	}
 	e.POST("/login", login.UserGeneralLogin)
 	e.POST("/register", login.UserRegister)
 	e.GET("/fetch", login.UserReqSwitch)
-	e.POST("/ldap", login.UserLdapLogin)
 
 	r := e.Group("/api/v2", middleware.JWTWithConfig(middleware.JwtConfig{SigningKey: []byte(model.JWT)}))
-	r.Restful("/common/:tp", personal.PersonalRestFulAPis())
-	r.Restful("/dash/:tp", apis.YearningDashApis())
-	r.Restful("/fetch/:tp", apis.YearningFetchApis())
-	r.Restful("/query/:tp", apis.YearningQueryApis())
+	personal.PersonalRestFulAPis().Route(r, "/common/:tp")
+	apis.YearningDashApis().Route(r, "/dash/:tp")
+	apis.YearningFetchApis().Route(r, "/fetch/:tp")
+	apis.YearningQueryApis().Route(r, "/query/:tp")
 
 	audit := r.Group("/audit", AuditGroup())
-	audit.Restful("/order/:tp", audit2.AuditRestFulAPis())
-	audit.Restful("/osc/:work_id", osc.AuditOSCFetchStateApis())
-	audit.Restful("/query/:tp", query2.AuditQueryRestFulAPis())
+	audit2.AuditRestFulAPis().Route(audit, "/order/:tp")
+	osc.AuditOSCFetchStateApis().Route(audit, "/osc/:work_id")
+	query2.AuditQueryRestFulAPis().Route(audit, "/query/:tp")
 
 	manager := r.Group("/manage", SuperManageGroup())
 	manager.POST("/board/post", board.GeneralPostBoard)
 
 	db := manager.Group("/db")
-	db.Restful("", db2.ManageDbApi())
+	db2.ManageDbApis().Route(db, "")
 
 	account := manager.Group("/user")
-	account.Restful("", user2.SuperUserApi())
+	user2.SuperUserApis().Route(account, "")
 
-	tpl := manager.Group("/tpl")
-	tpl.Restful("", tpl2.TplRestApis())
+	flow := manager.Group("/flow")
+	flow2.FlowRestApis().Route(flow, "")
+
+	template := manager.Group("/template")
+	template2.TemplatesApis().Route(template, "")
+
+	proxy := manager.Group("/proxy")
+	proxy2.ProxyApis().Route(proxy, "")
 
 	group := manager.Group("/group")
-	group.Restful("", group2.GroupsApis())
+	group2.GroupsApis().Route(group, "")
 
 	setting := manager.Group("/setting")
-	setting.Restful("", settings.SettingsApis())
+	settings.SettingsApis().Route(setting, "")
 
 	roles := manager.Group("/roles")
-	roles.Restful("", roles2.RolesApis())
+	roles2.RolesApis().Route(roles, "")
 
 	autoTask := manager.Group("/task")
-	autoTask.Restful("", autoTask2.SuperAutoTaskApis())
+	autoTask2.SuperAutoTaskApis().Route(autoTask, "")
 }

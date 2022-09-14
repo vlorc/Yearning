@@ -2,7 +2,7 @@ package personal
 
 import (
 	"Yearning-go/src/model"
-	"github.com/cookieY/yee"
+	"github.com/gin-gonic/gin"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,20 +13,20 @@ func init() {
 	model.DbInit("../../../conf.toml")
 }
 
-func QueryRes(y yee.Context) (err error) {
+func QueryRes(c *gin.Context) {
 	user := "admin"
-	return FetchQueryResults(y, &user)
+	FetchQueryResults(c, &user)
 }
 
 func BenchmarkFetchQueryResults(b *testing.B) {
-	y := yee.C()
-	y.POST("/api/v2/query", QueryRes)
+	c := gin.New()
+	c.POST("/api/v2/query", QueryRes)
 	b.ReportAllocs()
 	b.SetBytes(1024 * 1024)
 	for i := 0; i < b.N; i++ {
 		req := httptest.NewRequest(http.MethodPost, "/api/v2/query", strings.NewReader(`{"sql":"select * from core_accounts","data_base":"public","source":"local"}`))
-		req.Header.Set("Content-Type", yee.MIMEApplicationJSON)
+		req.Header.Set("Content-Type", gin.MIMEJSON)
 		rec := httptest.NewRecorder()
-		y.ServeHTTP(rec, req)
+		c.ServeHTTP(rec, req)
 	}
 }

@@ -7,27 +7,28 @@ import (
 	ser "Yearning-go/src/parser"
 	pb "Yearning-go/src/proto"
 	"encoding/json"
-	"github.com/cookieY/yee"
+	"github.com/gin-gonic/gin"
 	"net/http"
 )
 
-func SuperSaveRoles(c yee.Context) (err error) {
+func SuperSaveRoles(c *gin.Context) {
 
 	u := new(ser.AuditRole)
-	
-	if err = c.Bind(u); err != nil {
-		c.Logger().Error(err.Error())
-		return c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+
+	if err := c.MustBindWith(u, lib.Binding{}); err != nil {
+		// c.Logger().Error(err.Error())
+		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
+		return
 	}
 	ser.FetchAuditRole = *u
 	audit, _ := json.Marshal(u)
 	model.DB().Model(model.CoreGlobalConfiguration{}).Updates(&model.CoreGlobalConfiguration{AuditRole: audit})
 	lib.OverrideConfig(&pb.LibraAuditOrder{})
-	return c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.DATA_IS_EDIT))
+	c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(commom.DATA_IS_EDIT))
 }
 
-func SuperFetchRoles(c yee.Context) (err error) {
+func SuperFetchRoles(c *gin.Context) {
 	var k model.CoreGlobalConfiguration
 	model.DB().Select("audit_role").First(&k)
-	return c.JSON(http.StatusOK, commom.SuccessPayload(k))
+	c.JSON(http.StatusOK, commom.SuccessPayload(k))
 }

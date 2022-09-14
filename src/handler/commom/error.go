@@ -24,12 +24,20 @@ var (
 
 // SOAR 错误码 1900-1999
 
-func ERR_SOAR_ALTER_MERGE(err error) Resp {
+func ERR_SOAR_ALTER_ERROR(err error) Resp {
 	return Resp{
 		Code: 1901,
 		Text: err.Error(),
 	}
 }
+
+func ERR_SOAR_ALTER_MESSAGE(err string) Resp {
+	return Resp{
+		Code: 1901,
+		Text: err,
+	}
+}
+
 
 func ERR_COMMON_MESSAGE(err error) Resp {
 	return Resp{

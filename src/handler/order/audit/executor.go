@@ -15,6 +15,7 @@ type Review struct {
 	Delay string
 	Step  int
 	User  string
+	Proxy string
 }
 
 func (r *Review) IsKill() bool {
@@ -25,7 +26,7 @@ func (r *Review) IsKill() bool {
 
 func (r *Review) Init(order model.CoreSqlOrder) *Review {
 	var sor model.CoreDataSource
-	model.DB().Select("password,username,ip,port").Where("source =?", order.Source).First(&sor)
+	model.DB().Select("password,username,ip,port,proxy").Where("source =?", order.Source).First(&sor)
 
 	ps := lib.Decrypt(sor.Password)
 
@@ -43,6 +44,7 @@ func (r *Review) Init(order model.CoreSqlOrder) *Review {
 	r.Delay = order.Delay
 	r.Step = order.CurrentStep + 1
 	r.User = order.Assigned
+	r.Proxy = sor.Proxy
 	return r
 }
 
@@ -58,7 +60,7 @@ func (r *Review) Executor() {
 						log.Println(fmt.Sprintf("工单: %s 已被终止执行！", r.Juno.WorkId))
 						return
 					}
-					selectedType(r.Type, &r.Juno)
+					selectedType(r.Type, &r.Juno, r.Proxy)
 					tick.Stop()
 					goto ENDCHECK
 				}
@@ -66,17 +68,17 @@ func (r *Review) Executor() {
 				break
 			}
 		} else {
-			selectedType(r.Type, &r.Juno)
+			selectedType(r.Type, &r.Juno, r.Proxy)
 		}
 	}()
 	model.DB().Model(&model.CoreSqlOrder{}).Where("work_id =?", r.Juno.WorkId).Updates(map[string]interface{}{"status": 3, "current_step": r.Step, "assigned": r.User})
 }
-func selectedType(ty uint, juno *pb.LibraAuditOrder) {
+func selectedType(ty uint, juno *pb.LibraAuditOrder, proxyAlias string) {
 	switch ty {
 	case 0:
-		lib.ExDDLClient(juno)
+		lib.ExDDLClient(juno, proxyAlias)
 	case 1:
 		juno.IsDML = true
-		lib.ExDMLClient(juno)
+		lib.ExDMLClient(juno, proxyAlias)
 	}
 }

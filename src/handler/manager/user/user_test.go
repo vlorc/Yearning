@@ -17,7 +17,7 @@ import (
 	"Yearning-go/src/handler/commom"
 	"Yearning-go/src/model"
 	"Yearning-go/src/test"
-	"github.com/cookieY/yee"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
@@ -34,7 +34,7 @@ func init() {
 var apis = test.Case{
 	Method:  http.MethodPost,
 	Uri:     "/api/v2/manage/user",
-	Handler: SuperUserApi(),
+	Handler: SuperUserApis(),
 }
 
 func TestFetchUser(t *testing.T) {
@@ -99,54 +99,54 @@ func TestManageUserCreateOrEdit(t *testing.T) {
 }
 
 func BenchmarkSuperFetchUser(b *testing.B) {
-	y := yee.C()
-	y.PUT("/api/v2/manager/user", SuperFetchUser)
+	c := gin.New()
+	c.PUT("/api/v2/manage/user", SuperFetchUser)
 	b.ReportAllocs()
 	b.SetBytes(1024 * 1024)
 	for i := 0; i < b.N; i++ {
-		req := httptest.NewRequest(http.MethodPut, "/api/v2/manager/user", strings.NewReader(`{"page":1,"find":{"valve":false}}`))
-		req.Header.Set("Content-Type", yee.MIMEApplicationJSON)
+		req := httptest.NewRequest(http.MethodPut, "/api/v2/manage/user", strings.NewReader(`{"page":1,"find":{"valve":false}}`))
+		req.Header.Set("Content-Type", gin.MIMEJSON)
 		rec := httptest.NewRecorder()
-		y.ServeHTTP(rec, req)
+		c.ServeHTTP(rec, req)
 	}
 }
 
 func BenchmarkSuperDeleteUser(b *testing.B) {
-	y := yee.C()
-	y.DELETE("/api/v2/manager/user", SuperDeleteUser)
+	c := gin.New()
+	c.DELETE("/api/v2/manage/user", SuperDeleteUser)
 	b.ReportAllocs()
 	b.SetBytes(1024 * 1024)
 	for i := 0; i < b.N; i++ {
-		req := httptest.NewRequest(http.MethodDelete, "/api/v2/manager/user?user=admin", nil)
-		req.Header.Set("Content-Type", yee.MIMEApplicationJSON)
+		req := httptest.NewRequest(http.MethodDelete, "/api/v2/manage/user?user=admin", nil)
+		req.Header.Set("Content-Type", gin.MIMEJSON)
 		rec := httptest.NewRecorder()
-		y.ServeHTTP(rec, req)
+		c.ServeHTTP(rec, req)
 	}
 }
 
 func BenchmarkFetchUserGroups(b *testing.B) {
-	y := yee.C()
-	y.GET("/api/v2/manager/user", ManageUserFetch)
+	c := gin.New()
+	c.GET("/api/v2/manage/user", ManageUserFetch)
 	b.ReportAllocs()
 	b.SetBytes(1024 * 1024)
 	for i := 0; i < b.N; i++ {
-		req := httptest.NewRequest(http.MethodGet, "/api/v2/manager/user?user=admin&tp=group", nil)
-		req.Header.Set("Content-Type", yee.MIMEApplicationJSON)
+		req := httptest.NewRequest(http.MethodGet, "/api/v2/manage/user?user=admin&tp=group", nil)
+		req.Header.Set("Content-Type", gin.MIMEJSON)
 		rec := httptest.NewRecorder()
-		y.ServeHTTP(rec, req)
+		c.ServeHTTP(rec, req)
 	}
 }
 
 func BenchmarkDelUserDepend(b *testing.B) {
-	y := yee.C()
-	y.GET("/api/v2/manager/user", ManageUserFetch)
+	c := gin.New()
+	c.GET("/api/v2/manage/user", ManageUserFetch)
 	b.ReportAllocs()
 	b.SetBytes(1024 * 1024)
 	for i := 0; i < b.N; i++ {
-		req := httptest.NewRequest(http.MethodGet, "/api/v2/manager/user?user=admin&tp=depend", nil)
-		req.Header.Set("Content-Type", yee.MIMEApplicationJSON)
+		req := httptest.NewRequest(http.MethodGet, "/api/v2/manage/user?user=admin&tp=depend", nil)
+		req.Header.Set("Content-Type", gin.MIMEJSON)
 		rec := httptest.NewRecorder()
-		y.ServeHTTP(rec, req)
+		c.ServeHTTP(rec, req)
 	}
 }
 
