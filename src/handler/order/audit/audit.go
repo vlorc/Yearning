@@ -2,9 +2,12 @@ package audit
 
 import (
 	"Yearning-go/src/handler/commom"
+	"Yearning-go/src/handler/manager/flow"
 	"Yearning-go/src/lib"
 	"Yearning-go/src/model"
 	pb "Yearning-go/src/proto"
+	"encoding/json"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"time"
@@ -51,8 +54,27 @@ func ExecuteOrder(c *gin.Context) {
 	}
 	user, _ := lib.JwtParse(c)
 	var order model.CoreSqlOrder
-
 	model.DB().Where("work_id =?", u.WorkId).First(&order)
+
+	var flowTpl model.CoreWorkflowTpl
+	model.DB().Where("source =?", order.IDC).First(&flowTpl)
+
+	var steps []flow.Step
+	_ = json.Unmarshal(flowTpl.Steps, &steps)
+
+	var authCheck bool
+
+	for _, v := range steps[order.CurrentStep].Auditor {
+		if v == user {
+			authCheck = true
+			break
+		}
+	}
+
+	if !authCheck {
+		c.JSON(http.StatusOK, commom.ERR_COMMON_MESSAGE(fmt.Errorf("你没有权限进行操作")))
+		return
+	}
 
 	if order.Status != 2 && order.Status != 5 {
 		// c.Logger().Error(IDEMPOTENT)
@@ -76,7 +98,7 @@ func ExecuteOrder(c *gin.Context) {
 		Time:     time.Now().Format("2006-01-02 15:04"),
 		Action:   ORDER_EXECUTE_STATE,
 	})
-	
+
 	lib.MessagePush(u.WorkId, lib.EVENT_ORDER_EXEC_PASS, "")
 
 	c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(ORDER_EXECUTE_STATE))
@@ -90,6 +112,36 @@ func AuditOrderState(c *gin.Context) {
 		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
 		return
 	}
+
+	// add user check
+	var order model.CoreSqlOrder
+	model.DB().Where("work_id =?", u.WorkId).First(&order)
+
+	var flowTpl model.CoreWorkflowTpl
+	model.DB().Where("source =?", order.IDC).First(&flowTpl)
+
+	var steps []flow.Step
+	_ = json.Unmarshal(flowTpl.Steps, &steps)
+
+	if user == order.Username {
+		c.JSON(http.StatusOK, commom.ERR_COMMON_MESSAGE(fmt.Errorf("你是提交人不能进行操作")))
+		return
+	}
+
+	var authCheck bool
+
+	for _, v := range steps[order.CurrentStep].Auditor {
+		if v == user {
+			authCheck = true
+			break
+		}
+	}
+
+	if !authCheck {
+		c.JSON(http.StatusOK, commom.ERR_COMMON_MESSAGE(fmt.Errorf("你没有权限进行操作")))
+		return
+	}
+
 	switch u.Tp {
 	case "agree":
 		c.JSON(http.StatusOK, MultiAuditOrder(u, user))
