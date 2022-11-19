@@ -44,6 +44,7 @@ type Source struct {
 
 type Target struct {
 	All     bool     `json:"all"`
+	Users   []string `json:"users"`
 	Emails  []string `json:"emails"`
 	OpenIds []string `json:"openIds"`
 	Mobiles []string `json:"mobiles"`

@@ -43,12 +43,7 @@ func Dial(addr string) (net.Conn, error) {
 		return nil, fmt.Errorf("proxy is disable with alias '%s'", alias)
 	}
 
-	dialer := &proxy.SSHDialer{
-		Addr:     info.Url,
-		User:     info.Username,
-		Password: info.Password,
-		Secret:   info.Secret,
-	}
+	dialer := proxy.New(info.Driver, info.Url, info.Username, info.Password, info.Secret)
 
 	return dialer.Dial("tcp", string(target))
 }

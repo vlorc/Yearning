@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/net/proxy"
@@ -21,6 +22,15 @@ type SSHConn struct {
 }
 
 var _ proxy.Dialer = &SSHDialer{}
+
+func NewSSH(rawurl, user, pass, secret string) Dialer {
+	return &SSHDialer{
+		Addr:     rawurl,
+		User:     user,
+		Password: pass,
+		Secret:   secret,
+	}
+}
 
 func (s *SSHDialer) auth() (result []ssh.AuthMethod) {
 	result = make([]ssh.AuthMethod, 0)
@@ -45,15 +55,15 @@ func (s *SSHDialer) auth() (result []ssh.AuthMethod) {
 	return
 }
 
-func (s *SSHDialer) Test() error {
-	client, err := s.Conn()
+func (s *SSHDialer) Test(ctx context.Context) error {
+	client, err := s.Conn(ctx)
 	if nil != err {
 		return err
 	}
 	return client.Close()
 }
 
-func (s *SSHDialer) Conn() (*ssh.Client, error) {
+func (s *SSHDialer) Conn(ctx context.Context) (*ssh.Client, error) {
 	config := &ssh.ClientConfig{
 		User: s.User,
 		Auth: s.auth(),
@@ -69,7 +79,11 @@ func (s *SSHDialer) Conn() (*ssh.Client, error) {
 }
 
 func (s *SSHDialer) Dial(network, addr string) (net.Conn, error) {
-	client, err := s.Conn()
+	return s.DialContext(context.Background(), network, addr)
+}
+
+func (s *SSHDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	client, err := s.Conn(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -31,16 +31,14 @@ func NewJunoClient(conn *grpc.ClientConn, proxyAlias string) proto.JunoClient {
 		return client
 	}
 
-	return &JunoClientProxy{
-		client: client,
-		dialer: &proxy.SSHDialer{
-			Addr:     conf.Url,
-			User:     conf.Username,
-			Password: conf.Password,
-			Secret:   conf.Secret,
-		},
+	cli := &JunoClientProxy{
+		client:     client,
+		dialer: proxy.New(conf.Driver, conf.Url, conf.Username, conf.Password, conf.Secret),
 		proxyAlias: proxyAlias,
 	}
+
+
+	return cli
 }
 
 func (j *JunoClientProxy) begin(ctx context.Context, in *proto.LibraAuditOrder) *proxy.ProxyServer {

@@ -1,12 +1,46 @@
 package proxy
 
 import (
+	"context"
 	"golang.org/x/net/proxy"
 	"io"
 	"log"
 	"net"
 	"time"
 )
+
+type Dialer interface {
+	proxy.ContextDialer
+	proxy.Dialer
+	Test(context.Context) error
+}
+
+type Direct struct{}
+
+type DialFunc func(context.Context, string, string) (net.Conn, error)
+
+var _ proxy.ContextDialer = DialFunc(nil)
+var _ proxy.Dialer = DialFunc(nil)
+
+func (f DialFunc) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	return f(ctx, network, address)
+}
+
+func (f DialFunc) Dial(network, address string) (net.Conn, error) {
+	return f(context.Background(), network, address)
+}
+
+func (Direct) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	return proxy.Direct.DialContext(ctx, network, address)
+}
+
+func (f Direct) Dial(network, address string) (net.Conn, error) {
+	return proxy.Direct.Dial(network, address)
+}
+
+func (f Direct) Test(ctx context.Context) error {
+	return nil
+}
 
 type ProxyServer struct {
 	Name   string
@@ -33,7 +67,7 @@ func (s *ProxyServer) Close() error {
 		"target:", s.Target,
 		"count:", s.count)
 
-	time.AfterFunc(time.Minute * 3, func() {
+	time.AfterFunc(time.Minute*5, func() {
 		_ = s.ld.Close()
 		log.Println("Proxy destroy",
 			"name:", s.Name,
@@ -58,14 +92,7 @@ func (s *ProxyServer) Run() {
 	addr := net.JoinHostPort(s.Host, s.Port)
 	l, err := net.Listen("tcp", addr)
 	if nil != err {
-		log.Println("Proxy listen failed",
-			"name:", s.Name,
-			"begin:", s.begin,
-			"host:", s.Host,
-			"port:", s.Port,
-			"target:", s.Target,
-			"err:", err.Error(),
-		)
+
 		return
 	}
 

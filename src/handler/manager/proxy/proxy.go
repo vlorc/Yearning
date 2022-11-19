@@ -16,8 +16,10 @@ package template
 import (
 	"Yearning-go/src/handler/commom"
 	"Yearning-go/src/lib"
+	"Yearning-go/src/model"
 	"Yearning-go/src/proxy"
 	"Yearning-go/src/service"
+	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
@@ -56,20 +58,23 @@ func ProxyUpdate(c *gin.Context) {
 		return
 	}
 	if "test" == req.Tp {
-		dialer := &proxy.SSHDialer{
-			Addr:     req.Proxy.Url,
-			User:     req.Proxy.Username,
+		conf := &model.CoreProxy{
+			Url:      req.Proxy.Url,
+			Username: req.Proxy.Username,
 			Password: req.Proxy.Password,
 			Secret:   req.Proxy.Secret,
 		}
 		info := service.ProxyService{}.InfoById(req.Proxy.ID)
-		if nil != info && lib.IsHash(dialer.Password) {
-			dialer.Password = info.Password
+		if nil != info && lib.IsHash(conf.Password) {
+			conf.Password = info.Password
 		}
-		if nil != info && lib.IsHash(dialer.Secret) {
-			dialer.Password = info.Secret
+		if nil != info && lib.IsHash(conf.Secret) {
+			conf.Password = info.Secret
 		}
-		if err := dialer.Test(); nil == err {
+		dialer := proxy.New(req.Proxy.Driver, conf.Url, conf.Username, conf.Password, conf.Secret)
+		if nil == dialer {
+			c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage("驱动创建失败"))
+		} else if err := dialer.Test(context.Background()); nil == err {
 			c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage("连接成功"))
 		} else {
 			c.JSON(http.StatusOK, commom.ERR_COMMON_MESSAGE(err))
