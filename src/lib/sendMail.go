@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"log"
+	"net/url"
 	"strings"
 	"text/template"
 	"time"
@@ -67,7 +68,7 @@ var eventNameMapping = map[EventName]string{
 	EVENT_ORDER_EXEC_REJECT:  "工单拒绝",
 	EVENT_ORDER_EXEC_SUCCESS: "工单执行成功",
 	EVENT_ORDER_EXEC_FAILED:  "工单执行失败",
-	EVENT_ORDER_EXEC_PERFORM: "工单移交",
+	EVENT_ORDER_EXEC_PERFORM: "工单待审批",
 	EVENT_ORDER_EXEC_UNDO:    "工单撤销",
 	EVENT_ORDER_QUERY_CREATE: "查询申请创建",
 	EVENT_ORDER_QUERY_PASS:   "查询申请通过",
@@ -78,17 +79,23 @@ var QueryTemplate = func(EventName) []model.CoreTemplate {
 	return nil
 }
 
-func SendMail(mail model.Message, msg messagex.Message) error {
-	return mailer.Send(
-		mailer.Config{
-			Addr:     fmt.Sprintf("%s:%d", mail.Host, mail.Port),
-			User:     mail.User,
-			Pass:     mail.Password,
-			Ssl:      mail.Ssl,
-			Insecure: !mail.Ssl,
-			Timeout:  10,
-		},
-		msg)
+func SendMail(rawurl string, msg messagex.Message) error {
+	u, err := url.Parse(rawurl)
+	if nil != err {
+		return err
+	}
+	conf := mailer.Config{
+		Addr:     u.Host,
+		Ssl:      "smtps" == u.Scheme || u.Query().Get("ssl") == "true",
+		Insecure: u.Query().Get("insecure") == "true",
+		Timeout:  10,
+	}
+	if nil != u.User {
+		conf.User = u.User.Username()
+		conf.Pass, _ = u.User.Password()
+	}
+
+	return mailer.Send(conf, msg)
 }
 
 type TemplateParam struct {
@@ -285,32 +292,18 @@ func messagePushTemplate(temp *model.CoreTemplate, param *TemplateParam) error {
 	if strings.HasSuffix(param.Event, ORDER_SUCCESS_SUFFIX) || strings.HasSuffix(param.Event, ORDER_FAILED_suffix) {
 		appendTarget(&msg.Target, &param.User)
 	}
-	if model.GloMessage.Mail && "email" == temp.Channel {
-		return SendMail(model.GloMessage, msg)
-	}
 
-	if model.GloMessage.WebHook {
-		if "ding" == model.GloMessage.WebHookUrl || ding.IsDingUrl(model.GloMessage.WebHookUrl) {
-			return ding.Send(
-				ding.Config{
-					Url:    model.GloMessage.WebHookUrl,
-					Token:  model.GloMessage.Token,
-					Secret: model.GloMessage.Key,
-				},
-				msg,
-			)
-		}
-		if "qywx" == model.GloMessage.WebHookUrl || qywx.IsQywxUrl(model.GloMessage.WebHookUrl) {
-			return qywx.Send(
-				qywx.Config{
-					Url:    model.GloMessage.WebHookUrl,
-					Token:  model.GloMessage.Token,
-					Secret: model.GloMessage.Key,
-				},
-				msg,
-			)
-		}
-		return webhook.Send(webhook.Config{Url: model.GloMessage.WebHookUrl}, &b)
+	if "email" == temp.Channel {
+		return SendMail(temp.Url, msg)
+	}
+	if "ding" == temp.Channel || ding.IsDingUrl(temp.Url) {
+		return ding.Send(ding.Config{Url: temp.Url, Secret: temp.Secret}, msg)
+	}
+	if "qywx" == temp.Channel || qywx.IsQywxUrl(temp.Url) {
+		return qywx.Send(qywx.Config{Url: temp.Url}, msg)
+	}
+	if "webhook" == temp.Channel {
+		return webhook.Send(webhook.Config{Url: temp.Url}, &b)
 	}
 
 	return fmt.Errorf("can not support channel %s", temp.Channel)

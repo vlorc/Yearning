@@ -5,15 +5,15 @@ import (
 	"Yearning-go/src/proto"
 	"Yearning-go/src/proxy"
 	"context"
-	proxy2 "golang.org/x/net/proxy"
 	"google.golang.org/grpc"
+	"log"
 	"net"
 	"strconv"
 )
 
 type JunoClientProxy struct {
 	client     proto.JunoClient
-	dialer     proxy2.Dialer
+	dialer     proxy.Dialer
 	proxyAlias string
 }
 
@@ -26,17 +26,23 @@ func init() {
 func NewJunoClient(conn *grpc.ClientConn, proxyAlias string) proto.JunoClient {
 	client := proto.NewJunoClient(conn)
 
+	if "" == proxyAlias {
+		return client
+	}
+
 	conf := ProxyService{}.InfoByAlias(proxyAlias)
 	if nil == conf {
+		log.Println("Juno proxy can not found",
+			"name:", proxyAlias,
+		)
 		return client
 	}
 
 	cli := &JunoClientProxy{
 		client:     client,
-		dialer: proxy.New(conf.Driver, conf.Url, conf.Username, conf.Password, conf.Secret),
+		dialer:     proxy.New(conf.Driver, conf.Url, conf.Username, conf.Password, conf.Secret),
 		proxyAlias: proxyAlias,
 	}
-
 
 	return cli
 }
@@ -46,7 +52,7 @@ func (j *JunoClientProxy) begin(ctx context.Context, in *proto.LibraAuditOrder) 
 		Name:   j.proxyAlias,
 		Target: net.JoinHostPort(in.Source.Addr, strconv.Itoa(int(in.Source.Port))),
 		Host:   "127.0.0.1",
-		Dial:   j.dialer,
+		Dialer: j.dialer,
 	}
 
 	s.Run()
@@ -56,6 +62,14 @@ func (j *JunoClientProxy) begin(ctx context.Context, in *proto.LibraAuditOrder) 
 	port, _ := strconv.Atoi(s.Port)
 	source.Port = int32(port)
 	in.Source = &source
+
+	log.Println("Juno proxy begin",
+		"name:", s.Name,
+		"driver:", s.Dialer.Driver(),
+		"host:", s.Host,
+		"port:", s.Port,
+		"target:", s.Target,
+	)
 
 	return s
 }

@@ -76,7 +76,7 @@ func ExecuteOrder(c *gin.Context) {
 		return
 	}
 
-	if order.Status != 2 && order.Status != 5 {
+	if order.Status != model.ORDER_STATUS_AUDIT && order.Status != model.ORDER_STATUS_EXEC_READY {
 		// c.Logger().Error(IDEMPOTENT)
 		c.JSON(http.StatusOK, commom.SuccessPayLoadToMessage(IDEMPOTENT))
 		return

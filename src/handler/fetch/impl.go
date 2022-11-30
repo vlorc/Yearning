@@ -46,7 +46,7 @@ func (u *_FetchBind) FetchTableFieldsOrIndexes() error {
 		host = strings.Join([]string{lib.PROXY_PREFIX, s.Proxy, "_", hex.EncodeToString([]byte(net.JoinHostPort(s.IP, strconv.Itoa(s.Port))))}, "")
 	}
 
-	db, err := gorm.Open("mysql", fmt.Sprintf("%s:%s@(%s:%s)/%s?charset=utf8&parseTime=True&loc=Local", s.Username, ps, host, strconv.Itoa(int(s.Port)), u.DataBase))
+	db, err := gorm.Open("mysql", fmt.Sprintf("%s:%s@(%s:%d)/%s?charset=utf8&parseTime=True&loc=Local", s.Username, ps, host, s.Port, u.DataBase))
 	if err != nil {
 		return err
 	}

@@ -51,3 +51,33 @@ func delayKill(workId string) string {
 	model.DB().Model(&model.CoreSqlOrder{}).Where("work_id =?", workId).Updates(map[string]interface{}{"status": 4, "execute_time": time.Now().Format("2006-01-02 15:04"), "is_kill": 1})
 	return ORDER_DELAY_KILL_DETAIL
 }
+
+func ExecuteOrderEx(u *commom.ExecuteStr, user string) commom.Resp {
+	var order model.CoreSqlOrder
+	model.DB().Where("work_id =?", u.WorkId).First(&order)
+
+	if order.Status != 2 && order.Status != 5 {
+		return commom.SuccessPayLoadToMessage(IDEMPOTENT)
+	}
+
+	if order.Type == 3 {
+		model.DB().Model(&model.CoreSqlOrder{}).Where("work_id =?", u.WorkId).Updates(map[string]interface{}{"status": 1, "execute_time": time.Now().Format("2006-01-02 15:04"), "current_step": order.CurrentStep + 1})
+	} else {
+		executor := new(Review)
+
+		order.Assigned = user
+
+		executor.Init(order).Executor()
+	}
+	model.DB().Create(&model.CoreWorkflowDetail{
+		WorkId:   u.WorkId,
+		Username: user,
+		Rejected: "",
+		Time:     time.Now().Format("2006-01-02 15:04"),
+		Action:   ORDER_EXECUTE_STATE,
+	})
+
+	lib.MessagePush(u.WorkId, lib.EVENT_ORDER_EXEC_PASS, "")
+
+	return commom.SuccessPayLoadToMessage(ORDER_EXECUTE_STATE)
+}

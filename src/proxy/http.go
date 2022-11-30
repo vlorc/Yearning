@@ -25,6 +25,7 @@ type HttpDialer struct {
 	data    []byte
 	isHttps bool
 	code    int
+	driver  string
 }
 
 const (
@@ -36,12 +37,25 @@ func NewHttpx(rawurl, user, pass, secret string) Dialer {
 	d := createHttp(rawurl, user, pass, secret, textClientUpgradeRequest)
 	if nil != d {
 		d.code = http.StatusSwitchingProtocols
+		if d.isHttps {
+			d.driver = "httpsx"
+		} else {
+			d.driver = "httpx"
+		}
 	}
 	return d
 }
 
 func NewHttp(rawurl, user, pass, secret string) Dialer {
-	return createHttp(rawurl, user, pass, secret, textClientConnectRequest)
+	d := createHttp(rawurl, user, pass, secret, textClientConnectRequest)
+	if nil != d {
+		if d.isHttps {
+			d.driver = "https"
+		} else {
+			d.driver = "http"
+		}
+	}
+	return d
 }
 
 func createHttp(rawurl, user, pass, secret, format string) *HttpDialer {
@@ -198,4 +212,8 @@ func secretToTlsConfig(secret string) *tls.Config {
 		conf.RootCAs.AppendCertsFromPEM(ca)
 	}
 	return conf
+}
+
+func (f HttpDialer) Driver() string {
+	return f.driver
 }

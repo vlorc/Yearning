@@ -21,6 +21,7 @@ import (
 	ser "Yearning-go/src/parser"
 	pb "Yearning-go/src/proto"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"net"
@@ -165,7 +166,7 @@ func FetchQueryTableInfo(c *gin.Context) {
 
 func FetchQueryTableStruct(c *gin.Context) {
 	t := new(queryBind)
-	if err := c.Bind(t); err != nil {
+	if err := c.BindQuery(t); err != nil {
 		c.JSON(http.StatusOK, commom.ERR_REQ_BIND)
 		return
 	}
@@ -177,6 +178,12 @@ func FetchQueryTableStruct(c *gin.Context) {
 	var f []ser.FieldInfo
 	model.DB().Where("username =?", user).Last(&d)
 	model.DB().Where("source =?", unescape).First(&u)
+
+	if 0 == u.ID {
+		c.JSON(http.StatusOK, commom.ERR_COMMON_MESSAGE(errors.New("数据库不存在")))
+		return
+	}
+
 	ps := lib.Decrypt(u.Password)
 	host := u.IP
 	if "" != u.Proxy {

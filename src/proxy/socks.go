@@ -55,6 +55,9 @@ func (s *SocksDialer) DialContext(ctx context.Context, network, addr string) (ne
 }
 
 func (s *SocksDialer) Test(ctx context.Context) error {
-	//TODO implement me
-	panic("implement me")
+	return nil
+}
+
+func (s *SocksDialer) Driver() string {
+	return "socks"
 }

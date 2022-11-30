@@ -104,3 +104,7 @@ func (c *SSHConn) Close() error {
 	}
 	return err
 }
+
+func (s *SSHDialer) Driver() string {
+	return "ssh"
+}

@@ -26,6 +26,7 @@ import (
 	"Yearning-go/src/handler/manager/settings"
 	template2 "Yearning-go/src/handler/manager/template"
 	user2 "Yearning-go/src/handler/manager/user"
+	"Yearning-go/src/handler/openapi"
 	audit2 "Yearning-go/src/handler/order/audit"
 	"Yearning-go/src/handler/order/osc"
 	query2 "Yearning-go/src/handler/order/query"
@@ -127,4 +128,8 @@ func AddRouter(e gin.IRouter, box fs.FS) {
 
 	autoTask := manager.Group("/task")
 	autoTask2.SuperAutoTaskApis().Route(autoTask, "")
+
+	api := e.Group("/openapi/v1", middleware.NewOpenApi(model.C.Openapi.Appid, model.C.Openapi.Secret))
+	api.POST("order/audit", openapi.AuditOrder)
+
 }

@@ -13,6 +13,7 @@ type Dialer interface {
 	proxy.ContextDialer
 	proxy.Dialer
 	Test(context.Context) error
+	Driver() string
 }
 
 type Direct struct{}
@@ -42,12 +43,16 @@ func (f Direct) Test(ctx context.Context) error {
 	return nil
 }
 
+func (f Direct) Driver() string {
+	return "direct"
+}
+
 type ProxyServer struct {
 	Name   string
 	Target string
 	Host   string
 	Port   string
-	Dial   proxy.Dialer
+	Dialer Dialer
 	ld     net.Listener
 	begin  string
 	count  uint32
@@ -60,6 +65,7 @@ func (s *ProxyServer) Close() error {
 
 	log.Println("Proxy close",
 		"name:", s.Name,
+		"driver:", s.Dialer.Driver(),
 		"begin:", s.begin,
 		"end:", time.Now().Format("2006-01-02 15:04:05"),
 		"host:", s.Host,
@@ -71,6 +77,7 @@ func (s *ProxyServer) Close() error {
 		_ = s.ld.Close()
 		log.Println("Proxy destroy",
 			"name:", s.Name,
+			"driver:", s.Dialer.Driver(),
 			"begin:", s.begin,
 			"end:", time.Now().Format("2006-01-02 15:04:05"),
 			"host:", s.Host,
@@ -113,6 +120,7 @@ func (s *ProxyServer) Serve() {
 
 	log.Println("Proxy listen begin",
 		"name:", s.Name,
+		"driver:", s.Dialer.Driver(),
 		"begin:", s.begin,
 		"host:", s.Host,
 		"port:", s.Port,
@@ -122,7 +130,7 @@ func (s *ProxyServer) Serve() {
 	for {
 		conn, err := s.ld.Accept()
 		if nil != err {
-			log.Println("Proxy accept name:", s.Name, err.Error())
+			log.Println("Proxy accept name:", s.Name, "driver:", s.Dialer.Driver(), err.Error())
 			break
 		}
 
@@ -130,6 +138,7 @@ func (s *ProxyServer) Serve() {
 
 		log.Println("Proxy accept",
 			"name:", s.Name,
+			"driver:", s.Dialer.Driver(),
 			"begin:", s.begin,
 			"host:", s.Host,
 			"port:", s.Port,
@@ -142,6 +151,7 @@ func (s *ProxyServer) Serve() {
 
 	log.Println("Proxy listen end",
 		"name:", s.Name,
+		"driver:", s.Dialer.Driver(),
 		"begin:", s.begin,
 		"host:", s.Host,
 		"port:", s.Port,
@@ -151,11 +161,12 @@ func (s *ProxyServer) Serve() {
 
 func (s *ProxyServer) forward(conn net.Conn) {
 	remote := conn.RemoteAddr().String()
-	dst, err := s.Dial.Dial("tcp", s.Target)
+	dst, err := s.Dialer.Dial("tcp", s.Target)
 	if nil != err {
 		_ = conn.Close()
 		log.Println("Proxy dial failed",
 			"name:", s.Name,
+			"driver:", s.Dialer.Driver(),
 			"begin:", s.begin,
 			"host:", s.Host,
 			"port:", s.Port,
@@ -168,6 +179,7 @@ func (s *ProxyServer) forward(conn net.Conn) {
 
 	log.Println("Proxy forward begin",
 		"name:", s.Name,
+		"driver:", s.Dialer.Driver(),
 		"begin:", s.begin,
 		"host:", s.Host,
 		"port:", s.Port,
@@ -179,6 +191,7 @@ func (s *ProxyServer) forward(conn net.Conn) {
 
 	log.Println("Proxy forward end",
 		"name:", s.Name,
+		"driver:", s.Dialer.Driver(),
 		"begin:", s.begin,
 		"host:", s.Host,
 		"port:", s.Port,

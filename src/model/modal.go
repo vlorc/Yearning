@@ -230,6 +230,8 @@ type CoreTemplate struct {
 	Title     string    `gorm:"type:varchar(255)" json:"title"`
 	Body      string    `gorm:"type:text" json:"body"`
 	Status    int       `gorm:"type:tinyint(1);not null default 1" json:"status"`
+	Url       string    `gorm:"type:varchar(255);not null" json:"url"`
+	Secret    string    `gorm:"type:varchar(255);not null" json:"secret"`
 	CreatedAt time.Time `gorm:"type:datetime;" json:"createdAt"`
 	UpdatedAt time.Time `gorm:"type:datetime;" json:"updatedAt"`
 }

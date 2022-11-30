@@ -14,6 +14,7 @@
 package settings
 
 import (
+	"Yearning-go/internal/pkg/mailer"
 	"Yearning-go/internal/pkg/messagex"
 	"Yearning-go/src/handler/commom"
 	"Yearning-go/src/lib"
@@ -21,7 +22,9 @@ import (
 	pb "Yearning-go/src/proto"
 	"encoding/json"
 	"github.com/gin-gonic/gin"
+	"net"
 	"net/http"
+	"strconv"
 )
 
 const (
@@ -95,7 +98,14 @@ func SuperTestSetting(c *gin.Context) {
 	}
 
 	if el == "mail" {
-		go lib.SendMail(u.Message, messagex.Message{
+		go mailer.Send(mailer.Config{
+			Addr:     net.JoinHostPort(u.Message.Host, strconv.Itoa(u.Message.Port)),
+			Ssl:      u.Message.Ssl,
+			Insecure: u.Message.Ssl,
+			User:     u.Message.User,
+			Pass:     u.Message.Password,
+			Timeout:  10,
+		}, messagex.Message{
 			Body:   "test",
 			Target: messagex.Target{Mobiles: []string{u.Message.ToUser}},
 		})

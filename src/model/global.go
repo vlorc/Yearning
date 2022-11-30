@@ -44,6 +44,7 @@ type DbInfo struct {
 type Config struct {
 	General general
 	Mysql   mysql
+	Openapi openapi
 }
 
 var C Config
@@ -63,3 +64,8 @@ var GloLdap Ldap
 var GloOther Other
 
 var GloMessage Message
+
+type openapi struct {
+	Appid  string
+	Secret string
+}

@@ -25,6 +25,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -139,7 +140,11 @@ type Query struct {
 }
 
 func (q *Query) QueryRun(source *model.CoreDataSource, deal *QueryDeal) error {
-	rawurl := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4", source.Username, Decrypt(source.Password), source.IP, source.Port, deal.DataBase)
+	host := source.IP
+	if "" != source.Proxy {
+		host = strings.Join([]string{PROXY_PREFIX, source.Proxy, "_", hex.EncodeToString([]byte(net.JoinHostPort(source.IP, strconv.Itoa(source.Port))))}, "")
+	}
+	rawurl := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4", source.Username, Decrypt(source.Password), host, source.Port, deal.DataBase)
 
 	db, err := sql.Open("mysql", rawurl)
 
